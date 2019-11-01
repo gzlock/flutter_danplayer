@@ -1,0 +1,27 @@
+name: flutter_danplayer
+description: A Flutter DanMaku Player
+version: 0.0.1
+author: gzlock88 <gzlock88@gmail.com>
+homepage: https://github.com/gzlock/flutter_danplayer/
+
+environment:
+  sdk: ">=2.3.0 <3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  video_player: any
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  assets:
+    - assets/
+
+  fonts:
+    - family: iconfont
+      fonts:
+        - asset: fonts/iconfont.ttf
