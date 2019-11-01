@@ -11,13 +11,16 @@
 
 todo
 
-### 特点 /
+### 特点 / Features
 
 - 完善的弹幕功能
+
   Danmaku Danmaku Danmaku!
 
 - UI高自由度的自定义选项，包括：
-    blablabla
+
+    blahblahblah
+    
     - 视频进度条的指示器，你可以换成图片
     - 视频进度条的播放进度、缓存进度的颜色
     - UI上下部分的背景颜色
