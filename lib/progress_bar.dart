@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
-import 'flutter_danplayer.dart';
+import 'danplayer.dart';
 import 'ui_layer.dart';
 
 class DanPlayerProgressBar extends StatefulWidget {

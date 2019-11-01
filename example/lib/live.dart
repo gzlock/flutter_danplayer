@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_danplayer/flutter_danplayer.dart';
+import 'package:danplayer/danplayer.dart';
 
 class LiveModeDemo extends StatelessWidget {
   @override

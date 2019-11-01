@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
-import './flutter_danplayer.dart';
-import './progress_bar.dart';
+import 'danplayer.dart';
+import 'progress_bar.dart';
 import 'state_button.dart';
 
 class UILayer extends StatefulWidget {

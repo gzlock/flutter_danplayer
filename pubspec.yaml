@@ -1,4 +1,4 @@
-name: flutter_danplayer
+name: danplayer
 description: A Flutter DanMaku Player
 version: 0.0.1
 author: gzlock88 <gzlock88@gmail.com>
@@ -11,7 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
 
-  video_player: any
+  video_player: ^0.10.2+5
 
 dev_dependencies:
   flutter_test:
