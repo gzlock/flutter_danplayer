@@ -3,8 +3,6 @@ import 'package:video_player/video_player.dart';
 
 import 'danplayer.dart';
 
-
-
 class DanmakuLayer extends StatefulWidget {
   final DanPlayerState playerState;
 
@@ -27,7 +25,7 @@ class DanmakuLayerState extends State<DanmakuLayer> {
   void listener(VideoPlayerValue value) {
     danmakus
         .where((danmaku) =>
-    (danmaku.currentTime - value.position).inMilliseconds > 100)
+            (danmaku.currentTime - value.position).inMilliseconds > 100)
         .forEach((danamku) => {});
   }
 

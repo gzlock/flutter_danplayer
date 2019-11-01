@@ -1,8 +1,11 @@
 name: danplayer
-description: A Flutter DanMaku Player
+description:
+  A flutter danMaku player.
+  It's based on video_player, make a danmaku function and ui.
+  Tt has very much custom options for developer.
 version: 0.0.1
 author: gzlock88 <gzlock88@gmail.com>
-homepage: https://github.com/gzlock/flutter_danplayer/
+homepage: https://github.com/gzlock/flutter_danplayer
 
 environment:
   sdk: ">=2.3.0 <3.0.0"
