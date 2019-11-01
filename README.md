@@ -1,6 +1,9 @@
-# flutter_danplayer
+<p align="center"><img src="https://github.com/gzlock/images/raw/master/danplayer/logo.png"></p>
 
-A Flutter DanMaku Player
+# Flutter的弹幕播放器
+
+# A Flutter DanMaku Player
+
 
 ## Getting Started
 
