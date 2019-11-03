@@ -308,10 +308,13 @@ class UILayerState extends State<UILayer> {
               margin: EdgeInsets.only(top: 4),
               child: Column(
                 children: <Widget>[
-                  DanPlayerProgressBar(
-                    theme: widget.config,
-                    playerState: widget.playerState,
-                    uiState: this,
+                  Visibility(
+                    visible: widget.playerState.mode == DanPlayerMode.Normal,
+                    child: DanPlayerProgressBar(
+                      theme: widget.config,
+                      playerState: widget.playerState,
+                      uiState: this,
+                    ),
                   ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.start,

@@ -6,7 +6,6 @@ import 'custom.dart';
 import 'live.dart';
 
 void main() {
-
   /// Be careful this variable
   danPlayerRenderVideo = false;
 
@@ -45,6 +44,15 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: ListView(
         children: <Widget>[
+          Card(
+            child: Padding(
+              padding: EdgeInsets.all(5),
+              child: Text(
+                'Packcage url\nhttps://pub.dev/packages/danplayer',
+                softWrap: true,
+              ),
+            ),
+          ),
           Card(
             child: Padding(
               padding: EdgeInsets.all(5),
@@ -103,7 +111,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'Custom very thing use the DanPlayerConfig\n'
+                    'Customize everything use the DanPlayerConfig\n'
                     'Just for fun',
                     softWrap: true,
                   ),
