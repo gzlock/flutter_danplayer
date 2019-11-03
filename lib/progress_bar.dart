@@ -5,17 +5,17 @@ import 'danplayer.dart';
 import 'ui_layer.dart';
 
 class DanPlayerProgressBar extends StatefulWidget {
-  final DanPlayerTheme theme;
+  final DanPlayerConfig theme;
   final double barHeight;
   final DanPlayerState playerState;
-  final UILayerState controllerState;
+  final UILayerState uiState;
 
   const DanPlayerProgressBar({
     Key key,
     this.theme,
     this.barHeight = 2,
     @required this.playerState,
-    @required this.controllerState,
+    @required this.uiState,
   }) : super(key: key);
 
   @override
@@ -25,8 +25,9 @@ class DanPlayerProgressBar extends StatefulWidget {
 class DanPlayerProgressBarState extends State<DanPlayerProgressBar> {
   final GlobalKey _container = GlobalKey();
   final Size handlerSize = const Size(10, 10);
-  double _width = 0;
-  double _playerX = 0, _bufferedX = 0;
+  double _width = 0, _playerX = 0, _bufferedX = 0, _handlerX = 0;
+  bool _isDragging = false;
+  Duration _handlerDuration = Duration(milliseconds: 100);
 
   @override
   void initState() {
@@ -49,17 +50,52 @@ class DanPlayerProgressBarState extends State<DanPlayerProgressBar> {
           (value.buffered[0].end.inMilliseconds /
               value.duration.inMilliseconds);
     }
+    if (_isDragging == false) _handlerX = _playerX;
+    _update();
+  }
+
+  void _update() {
+    if (mounted) setState(() {});
+  }
+
+  void _seekTo(double x, {bool seek: true}) {
+    if (x < 0 || x > _width) return;
+    _playerX = x;
+    _handlerX = x;
+    if (seek && widget.playerState.videoValue != null) {
+      final millisecond =
+          x / _width * widget.playerState.videoValue.duration.inMilliseconds;
+      widget.playerState.seekTo(Duration(milliseconds: millisecond.toInt()));
+    }
     setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapDown: (_) {
-        widget.controllerState.show();
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (TapDownDetails details) {
+        print('进度条 onTapDown');
+        widget.uiState.show();
       },
-      onTapCancel: () {
-        widget.controllerState.hide(immediately: false);
+      onTapUp: (TapUpDetails details) {
+        print('进度条 onTapUp');
+        widget.uiState.hide();
+        _seekTo(details.localPosition.dx);
+      },
+      onPanStart: (DragStartDetails details) {
+        _isDragging = true;
+        _handlerDuration = Duration.zero;
+        _seekTo(details.localPosition.dx, seek: false);
+      },
+      onPanUpdate: (DragUpdateDetails details) {
+        final x = _playerX + details.delta.dx;
+        _seekTo(x);
+      },
+      onPanEnd: (_) {
+        _isDragging = false;
+        _handlerDuration = Duration(milliseconds: 100);
+        widget.uiState.hide();
       },
       child: Container(
         key: _container,
@@ -67,26 +103,32 @@ class DanPlayerProgressBarState extends State<DanPlayerProgressBar> {
         child: Stack(
           overflow: Overflow.visible,
           children: <Widget>[
+            /// 底色
             Container(
               constraints: BoxConstraints.expand(height: widget.barHeight),
               color: Colors.grey,
             ),
+
+            /// 缓存区域
             Container(
               constraints: BoxConstraints.expand(
-                  width: _bufferedX, height: widget.barHeight),
+                width: _bufferedX,
+                height: widget.barHeight,
+              ),
               color: widget.theme.progressBarBufferAreaColor,
             ),
-            Positioned(
-              left: 0,
+
+            /// 已经播放区域
+            Container(
               width: _playerX,
               height: widget.barHeight,
-              child: Container(
-                color: widget.theme.progressBarColor,
-              ),
+              color: widget.theme.progressBarColor,
             ),
+
+            /// 进度条 指示器
             AnimatedPositioned(
-              duration: Duration(milliseconds: 100),
-              left: _playerX,
+              duration: _handlerDuration,
+              left: _handlerX,
               top: -4,
               child: widget.theme.progressBarHandler,
             ),

@@ -4,30 +4,52 @@ import 'dart:convert';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
 import 'danmaku_layer.dart';
 import 'ui_layer.dart';
+
+///
+///
+/// Some simulators when render video throw exception.
+/// Let it to false, DanPlayer will not render video to screen.
+///
+///
+bool danPlayerRenderVideo = true;
 
 enum DanPlayerMode {
   Normal,
   Live,
 }
 
-class DanPlayerTheme {
+class DanPlayerConfig {
   final Color controllerBackgroundColor;
-  final Color highLightColor;
   final Color progressBarColor;
   final Color progressBarBufferAreaColor;
-  final Widget progressBarHandler;
+  final Widget progressBarHandler, loadingWidget;
 
-  const DanPlayerTheme({
-    @required this.controllerBackgroundColor,
-    @required this.highLightColor,
-    @required this.progressBarColor,
-    @required this.progressBarBufferAreaColor,
+  /// the appBar actions
+  final List<Widget> actions;
+
+  final Duration uiFadeOutDuration;
+
+  /// enable / disable danmaku functions
+  final bool danmaku;
+
+  const DanPlayerConfig({
     @required this.progressBarHandler,
-  });
+    this.loadingWidget,
+    this.controllerBackgroundColor: const Color.fromARGB(255, 0, 0, 0),
+    this.progressBarColor: Colors.blue,
+    this.progressBarBufferAreaColor: Colors.blueGrey,
+    this.actions: const [],
+    this.danmaku: true,
+    this.uiFadeOutDuration: const Duration(seconds: 4),
+  })  : assert(controllerBackgroundColor != null),
+        assert(progressBarColor != null),
+        assert(progressBarBufferAreaColor != null),
+        assert(progressBarHandler != null);
 }
 
 enum DanmakuType {
@@ -85,8 +107,9 @@ class DanPlayer extends StatefulWidget {
   final String name, video;
   final bool autoPlay;
   final DanPlayerMode mode;
-  final DanPlayerTheme theme;
+  final DanPlayerConfig config;
   final Duration uiFadeOutDuration, uiFadeOutSpeed;
+  final Future<bool> Function(Danmaku danmaku) onBeforeSubmit;
 
   const DanPlayer({
     Key key,
@@ -94,9 +117,10 @@ class DanPlayer extends StatefulWidget {
     @required this.video,
     this.autoPlay: true,
     this.mode: DanPlayerMode.Normal,
-    this.theme,
-    this.uiFadeOutDuration: const Duration(seconds: 5),
+    this.config,
+    this.uiFadeOutDuration: const Duration(seconds: 2),
     this.uiFadeOutSpeed: const Duration(milliseconds: 200),
+    this.onBeforeSubmit,
   }) : super(key: key);
 
   @override
@@ -112,24 +136,28 @@ class DanPlayerState extends State<DanPlayer> {
   VideoPlayerController _controller;
   bool _displayDanmkau;
   bool _play;
-  DanPlayerTheme _theme;
+  DanPlayerConfig config;
   double _videoAspectRatio = 1;
   DanPlayerMode mode;
+  VideoPlayerValue _videoValue;
+
+  VideoPlayerValue get videoValue => _videoValue;
 
   @override
   void dispose() {
-    super.dispose();
+    SystemChrome.restoreSystemUIOverlays();
     _controller.dispose();
+    super.dispose();
   }
 
   @override
   void initState() {
     super.initState();
-    _theme = widget.theme;
-    if (_theme == null) {
-      _theme = DanPlayerTheme(
+    SystemChrome.setEnabledSystemUIOverlays([]);
+    config = widget.config;
+    if (config == null) {
+      config = DanPlayerConfig(
         controllerBackgroundColor: Colors.black.withOpacity(0.5),
-        highLightColor: Colors.blue,
         progressBarColor: Colors.blue,
         progressBarBufferAreaColor: Colors.blue.shade100,
         progressBarHandler: Container(
@@ -147,6 +175,7 @@ class DanPlayerState extends State<DanPlayer> {
   }
 
   void _initVideoSize(VideoPlayerValue value) {
+    removeListener(_initVideoSize);
     _videoAspectRatio = value.aspectRatio;
     setState(() {});
   }
@@ -155,6 +184,7 @@ class DanPlayerState extends State<DanPlayer> {
       {DanPlayerMode mode: DanPlayerMode.Normal, String name: 'Danplayer'}) {
     this.name = name;
     this.mode = mode;
+    _play = widget.autoPlay;
     if (_controller?.dataSource == video) return;
     _controller?.dispose();
     _controller = VideoPlayerController.network(video)..initialize();
@@ -167,6 +197,8 @@ class DanPlayerState extends State<DanPlayer> {
   }
 
   void seekTo(Duration moment) async {
+    if (moment < Duration.zero || moment > _videoValue.duration) return;
+    print('seek $moment');
     if (_controller.value.initialized) await _controller.seekTo(moment);
   }
 
@@ -186,9 +218,10 @@ class DanPlayerState extends State<DanPlayer> {
   }
 
   void _listener() {
-    if (!_controller.value.initialized) return;
-    print('listener: ${_controller.value}');
-    _listeners.forEach((func) => func(_controller.value));
+    _videoValue = _controller.value;
+    if (!_videoValue.initialized) return;
+    print('danplayer listener: $_videoValue');
+    _listeners.forEach((func) => func(_videoValue));
   }
 
   set displayDanmkau(bool value) {
@@ -221,7 +254,7 @@ class DanPlayerState extends State<DanPlayer> {
       child: Stack(
         children: <Widget>[
           Container(color: Colors.black),
-          bool.fromEnvironment('dart.vm.product')
+          danPlayerRenderVideo
               ? VideoPlayer(_controller)
               : Visibility(
                   visible: _controller.value.initialized,
@@ -232,7 +265,8 @@ class DanPlayerState extends State<DanPlayer> {
                         color: Colors.white,
                         child: Center(
                           child: Text(
-                            'Debug模式\n用白底黑字\n模拟视频画面',
+                            'When danPlayerRenderVideo = false\n'
+                            'Use this widget instead of video',
                           ),
                         ),
                       ),
@@ -245,7 +279,7 @@ class DanPlayerState extends State<DanPlayer> {
           ),
           UILayer(
             key: _ui,
-            theme: _theme,
+            config: config,
             fadeOutDuration: widget.uiFadeOutDuration,
             fadeOutSpeed: widget.uiFadeOutSpeed,
             playerState: this,

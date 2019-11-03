@@ -1,15 +1,25 @@
+import 'package:danplayer/danplayer.dart';
 import 'package:example/vod.dart';
 import 'package:flutter/material.dart';
 
+import 'custom.dart';
 import 'live.dart';
 
-void main() => runApp(MyApp());
+void main() {
+
+  /// Import point
+  ///
+  danPlayerRenderVideo = false;
+
+  runApp(MyApp());
+}
 
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'DanPlayer Demo',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
@@ -43,8 +53,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'The normal(VOD) mode demo\n'
-                    'No progress bar\n',
+                    'The normal(VOD) mode demo',
                     softWrap: true,
                   ),
                   RaisedButton(
@@ -70,11 +79,11 @@ class _MyHomePageState extends State<MyHomePage> {
                 children: <Widget>[
                   Text(
                     'The live mode demo\n'
-                    'No progress bar\n',
+                    'No progress bar',
                     softWrap: true,
                   ),
                   RaisedButton(
-                    color: Colors.blue,
+                    color: Colors.green,
                     child: Text(
                       'Live Demo',
                       style: TextStyle(color: Colors.white),
@@ -82,6 +91,32 @@ class _MyHomePageState extends State<MyHomePage> {
                     onPressed: () {
                       Navigator.push(context,
                           MaterialPageRoute(builder: (_) => LiveModeDemo()));
+                    },
+                  )
+                ],
+              ),
+            ),
+          ),
+          Card(
+            child: Padding(
+              padding: EdgeInsets.all(5),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Custom very thing use the DanPlayerConfig\n'
+                    'Just for fun',
+                    softWrap: true,
+                  ),
+                  RaisedButton(
+                    color: Colors.orange,
+                    child: Text(
+                      'Custom Demo',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    onPressed: () {
+                      Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => CustomDemo()));
                     },
                   )
                 ],
