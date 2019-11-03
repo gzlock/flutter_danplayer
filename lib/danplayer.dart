@@ -146,6 +146,7 @@ class DanPlayerState extends State<DanPlayer> {
   @override
   void dispose() {
     SystemChrome.restoreSystemUIOverlays();
+    SystemChrome.setEnabledSystemUIOverlays(SystemUiOverlay.values);
     _controller.dispose();
     super.dispose();
   }
@@ -240,6 +241,15 @@ class DanPlayerState extends State<DanPlayer> {
   }
 
   get play => _play;
+
+  double _volume = 1;
+
+  set volume(double value) {
+    _controller.setVolume(value);
+  }
+
+  double get volume =>
+      _controller.value?.initialized == true ? _controller.value.volume : 1;
 
   void stop() {
     _controller.pause();

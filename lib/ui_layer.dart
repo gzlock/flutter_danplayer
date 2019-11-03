@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:danplayer/route.dart';
 import 'package:flutter/cupertino.dart';
@@ -39,6 +40,8 @@ class UILayerState extends State<UILayer> {
   String _timeString = '请稍候';
   VideoPlayerValue _playerValue;
   String _error = '';
+
+  double _volumeY = 0, _volumeHintY = 0;
 
   get isShow => _isShow;
 
@@ -250,6 +253,48 @@ class UILayerState extends State<UILayer> {
           },
           child: Container(
             color: Colors.transparent,
+          ),
+        ),
+
+        Positioned(
+          right: 120,
+          top: _volumeHintY,
+          child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: Text(
+                'Volume: ${widget.playerState.volume}',
+                style: TextStyle(
+                  color: Colors.white,
+                ),
+              )),
+        ),
+
+        Positioned(
+          right: 0,
+          top: 0,
+          bottom: 0,
+          child: GestureDetector(
+            onVerticalDragStart: (DragStartDetails details) {
+              _volumeHintY = _volumeY = details.localPosition.dy;
+              setState(() {});
+            },
+            onVerticalDragUpdate: (DragUpdateDetails details) {
+              if ((details.localPosition.dy - _volumeY).abs() > 5) {
+                if (_volumeY < details.localPosition.dy)
+                  widget.playerState.volume -= 0.1;
+                else if (_volumeY > details.localPosition.dy)
+                  widget.playerState.volume += 0.1;
+                _volumeHintY = _volumeY = details.localPosition.dy;
+                setState(() {});
+              }
+            },
+            child: Container(
+              width: 100,
+              color: Colors.red,
+            ),
           ),
         ),
 
