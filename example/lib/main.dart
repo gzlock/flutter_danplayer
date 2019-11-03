@@ -7,8 +7,7 @@ import 'live.dart';
 
 void main() {
 
-  /// Import point
-  ///
+  /// Be careful this variable
   danPlayerRenderVideo = false;
 
   runApp(MyApp());
