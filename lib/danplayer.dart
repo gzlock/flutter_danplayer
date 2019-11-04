@@ -268,14 +268,16 @@ class DanPlayerState extends State<DanPlayer> {
       child: Stack(
         children: <Widget>[
           Container(color: Colors.black),
-          danPlayerRenderVideo
-              ? VideoPlayer(_controller)
-              : Visibility(
-                  visible: _controller.value.initialized,
-                  child: Center(
-                    child: AspectRatio(
-                      aspectRatio: _videoAspectRatio,
-                      child: Container(
+
+          /// 视频画面
+          Visibility(
+            visible: _controller.value.initialized,
+            child: Center(
+              child: AspectRatio(
+                aspectRatio: _videoAspectRatio,
+                child: danPlayerRenderVideo
+                    ? VideoPlayer(_controller)
+                    : Container(
                         color: Colors.white,
                         child: Center(
                           child: Text(
@@ -284,9 +286,9 @@ class DanPlayerState extends State<DanPlayer> {
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                ),
+              ),
+            ),
+          ),
           DanmakuLayer(
             key: _danmakuLayer,
             playerState: this,
