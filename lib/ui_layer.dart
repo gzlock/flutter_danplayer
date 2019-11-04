@@ -1,15 +1,16 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:danplayer/route.dart';
+import 'package:danplayer/video_gesture.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
+import 'buttons.dart';
 import 'danplayer.dart';
 import 'post_danmaku_layer.dart';
 import 'progress_bar.dart';
-import 'buttons.dart';
+import 'utils.dart';
 
 class UILayer extends StatefulWidget {
   final DanPlayerConfig config;
@@ -31,17 +32,14 @@ class UILayer extends StatefulWidget {
 }
 
 class UILayerState extends State<UILayer> {
-  GlobalKey _progressBar = GlobalKey(), _barHandler = GlobalKey();
   GlobalKey<MyIconButtonState> _playButton = GlobalKey();
-  double appBarHeight = 0, controllerHeight = kToolbarHeight + 20;
+  double appBarHeight = 0, controllerHeight = kToolbarHeight + 30;
   double _titleTop = 0, _controllerBottom = 0;
   Timer _fadeOutTimer;
   bool _isShow = true, _isLoading = true, _inputMode = false;
   String _timeString = '请稍候';
   VideoPlayerValue _playerValue;
   String _error = '';
-
-  double _volumeY = 0, _volumeHintY = 0;
 
   get isShow => _isShow;
 
@@ -69,16 +67,11 @@ class UILayerState extends State<UILayer> {
       if (value.isPlaying) hide();
     }
     if (widget.playerState.mode == DanPlayerMode.Normal) {
-      _timeString = value.position.inMinutes.toString().padLeft(2, '0') +
-          ':' +
-          value.position.inSeconds.remainder(60).toString().padLeft(2, '0') +
-          ' / ' +
-          value.duration.inMinutes.toString().padLeft(2, '0') +
-          ':' +
-          value.duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+      _timeString = durationToString(value.position);
     } else {
       _timeString = '直播中';
     }
+    _playButton.currentState.state = widget.playerState.play;
   }
 
   void init(_) {
@@ -238,64 +231,10 @@ class UILayerState extends State<UILayer> {
           ),
         ),
 
-        GestureDetector(
-          onTap: () {
-            if (_playerValue?.initialized != true) return;
-            print('onTap');
-            if (_isShow) {
-              widget.playerState.play = !widget.playerState.play;
-              _playButton.currentState.state = widget.playerState.play;
-              hide();
-            } else {
-              show();
-              hide();
-            }
-          },
-          child: Container(
-            color: Colors.transparent,
-          ),
-        ),
-
-        Positioned(
-          right: 120,
-          top: _volumeHintY,
-          child: Container(
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(5),
-              ),
-              child: Text(
-                'Volume: ${widget.playerState.volume}',
-                style: TextStyle(
-                  color: Colors.white,
-                ),
-              )),
-        ),
-
-        Positioned(
-          right: 0,
-          top: 0,
-          bottom: 0,
-          child: GestureDetector(
-            onVerticalDragStart: (DragStartDetails details) {
-              _volumeHintY = _volumeY = details.localPosition.dy;
-              setState(() {});
-            },
-            onVerticalDragUpdate: (DragUpdateDetails details) {
-              if ((details.localPosition.dy - _volumeY).abs() > 5) {
-                if (_volumeY < details.localPosition.dy)
-                  widget.playerState.volume -= 0.1;
-                else if (_volumeY > details.localPosition.dy)
-                  widget.playerState.volume += 0.1;
-                _volumeHintY = _volumeY = details.localPosition.dy;
-                setState(() {});
-              }
-            },
-            child: Container(
-              width: 100,
-              color: Colors.red,
-            ),
-          ),
+        /// 触控、滑动等操作
+        VideoGesture(
+          playerState: widget.playerState,
+          uiState: this,
         ),
 
         /// AppBar
@@ -313,8 +252,8 @@ class UILayerState extends State<UILayer> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    widget.config.controllerBackgroundColor,
-                    widget.config.controllerBackgroundColor.withOpacity(0),
+                    widget.config.backgroundDeepColor,
+                    widget.config.backgroundDeepColor.withOpacity(0),
                   ],
                 ),
               ),
@@ -339,19 +278,21 @@ class UILayerState extends State<UILayer> {
             duration: widget.fadeOutSpeed,
             child: Container(
               height: controllerHeight,
-              padding: EdgeInsets.only(top: 18, left: 10, right: 10),
+              padding:
+                  EdgeInsets.only(top: 18, left: 10, right: 10, bottom: 10),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    widget.config.controllerBackgroundColor.withOpacity(0),
-                    widget.config.controllerBackgroundColor,
+                    widget.config.backgroundDeepColor.withOpacity(0),
+                    widget.config.backgroundDeepColor,
                   ],
                 ),
               ),
               margin: EdgeInsets.only(top: 4),
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: <Widget>[
                   Visibility(
                     visible: widget.playerState.mode == DanPlayerMode.Normal,

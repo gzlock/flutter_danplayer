@@ -12,6 +12,7 @@ class CustomDemo extends StatelessWidget {
         mode: DanPlayerMode.Normal,
         autoPlay: false,
         config: DanPlayerConfig(
+          backgroundDeepColor: Colors.blue.withOpacity(0.5),
           progressBarHandler: Text('🚚'),
           loadingWidget: LoadingView(
             duration: Duration(seconds: 1),
@@ -20,7 +21,7 @@ class CustomDemo extends StatelessWidget {
               style: TextStyle(fontSize: 40),
             ),
           ),
-          // danmaku: false,
+          danmaku: false,
           actions: [
             IconButton(
               icon: Text('🏀'),

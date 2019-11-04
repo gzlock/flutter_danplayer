@@ -14,6 +14,11 @@ import 'ui_layer.dart';
 ///
 /// Some simulators when render video throw exception.
 /// Let it to false, DanPlayer will not render video to screen.
+/// But the video is actually playing, so you can hear the sound.
+///
+/// 因为有些安卓模拟器在渲染视频时会报错。
+/// 所以专门设置了这个变量用于不渲染视频。
+/// 但视频还是在播放的，所以你能听得到声音。
 ///
 ///
 bool danPlayerRenderVideo = true;
@@ -24,7 +29,9 @@ enum DanPlayerMode {
 }
 
 class DanPlayerConfig {
-  final Color controllerBackgroundColor;
+  final Color backgroundColor;
+  final Color backgroundLightColor;
+  final Color backgroundDeepColor;
   final Color progressBarColor;
   final Color progressBarBufferAreaColor;
   final Widget progressBarHandler, loadingWidget;
@@ -40,13 +47,15 @@ class DanPlayerConfig {
   const DanPlayerConfig({
     @required this.progressBarHandler,
     this.loadingWidget,
-    this.controllerBackgroundColor: const Color.fromARGB(255, 0, 0, 0),
+    this.backgroundColor: const Color.fromRGBO(0, 0, 0, 0.3),
+    this.backgroundLightColor: Colors.transparent,
+    this.backgroundDeepColor: const Color.fromRGBO(0, 0, 0, 0.5),
     this.progressBarColor: Colors.blue,
     this.progressBarBufferAreaColor: Colors.blueGrey,
     this.actions: const [],
     this.danmaku: true,
     this.uiFadeOutDuration: const Duration(seconds: 4),
-  })  : assert(controllerBackgroundColor != null),
+  })  : assert(backgroundDeepColor != null),
         assert(progressBarColor != null),
         assert(progressBarBufferAreaColor != null),
         assert(progressBarHandler != null);
@@ -117,10 +126,10 @@ class DanPlayer extends StatefulWidget {
     @required this.video,
     this.autoPlay: true,
     this.mode: DanPlayerMode.Normal,
-    this.config,
     this.uiFadeOutDuration: const Duration(seconds: 2),
     this.uiFadeOutSpeed: const Duration(milliseconds: 200),
     this.onBeforeSubmit,
+    this.config,
   }) : super(key: key);
 
   @override
@@ -158,9 +167,6 @@ class DanPlayerState extends State<DanPlayer> {
     config = widget.config;
     if (config == null) {
       config = DanPlayerConfig(
-        controllerBackgroundColor: Colors.black.withOpacity(0.5),
-        progressBarColor: Colors.blue,
-        progressBarBufferAreaColor: Colors.blue.shade100,
         progressBarHandler: Container(
           width: 10,
           height: 10,
@@ -241,8 +247,6 @@ class DanPlayerState extends State<DanPlayer> {
   }
 
   get play => _play;
-
-  double _volume = 1;
 
   set volume(double value) {
     _controller.setVolume(value);

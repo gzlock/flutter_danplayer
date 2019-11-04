@@ -112,8 +112,8 @@ class PostDanmakuLayerState extends State<PostDanmakuLayer> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      widget.theme.controllerBackgroundColor,
-                      widget.theme.controllerBackgroundColor.withOpacity(0),
+                      widget.theme.backgroundDeepColor,
+                      widget.theme.backgroundDeepColor.withOpacity(0),
                     ],
                   ),
                 ),
