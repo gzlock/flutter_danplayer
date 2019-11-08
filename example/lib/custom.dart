@@ -2,15 +2,35 @@ import 'package:danplayer/danplayer.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
-class CustomDemo extends StatelessWidget {
+const url = 'http://vfx.mtime.cn/Video/2019/03/09/mp4/190309153658147087.mp4';
+
+class CustomDemo extends StatefulWidget {
+  @override
+  _CustomDemo createState() => _CustomDemo();
+}
+
+class _CustomDemo extends State<CustomDemo> {
+  DanPlayerController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = DanPlayerController();
+    _controller.setDataSource(
+        DataSource.network(url, autoPlay: true, title: 'Network Video'));
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: DanPlayer(
-        video:
-            'https://bitdash-a.akamaihd.net/content/MI201109210084_1/m3u8s/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.m3u8',
-        mode: DanPlayerMode.Normal,
-        autoPlay: false,
+        controller: _controller,
         config: DanPlayerConfig(
           backgroundDeepColor: Colors.blue.withOpacity(0.5),
           progressBarHandler: Text('🚚'),

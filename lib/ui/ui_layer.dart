@@ -1,21 +1,10 @@
-import 'dart:async';
-
-import 'package:danplayer/route.dart';
-import 'package:danplayer/video_gesture.dart';
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
-
-import 'buttons.dart';
-import 'danplayer.dart';
-import 'post_danmaku_layer.dart';
-import 'progress_bar.dart';
-import 'utils.dart';
+part of '../danplayer.dart';
 
 class UILayer extends StatefulWidget {
   final DanPlayerConfig config;
   final Duration fadeOutDuration;
   final DanPlayerState playerState;
+  final DanPlayerController controller;
 
   final Duration fadeOutSpeed;
 
@@ -25,6 +14,7 @@ class UILayer extends StatefulWidget {
     this.fadeOutDuration,
     this.fadeOutSpeed,
     @required this.playerState,
+    @required this.controller,
   }) : super(key: key);
 
   @override
@@ -46,13 +36,14 @@ class UILayerState extends State<UILayer> {
   @override
   void initState() {
     super.initState();
-    widget.playerState.addListener(listener);
+    widget.controller.addPositionChanged(listener);
     WidgetsBinding.instance.addPostFrameCallback(init);
   }
 
   @override
   void dispose() {
     _cancelTimer();
+    widget.controller.removePositionChanged(listener);
     super.dispose();
   }
 
@@ -67,7 +58,9 @@ class UILayerState extends State<UILayer> {
       if (value.isPlaying) hide();
     }
     if (widget.playerState.mode == DanPlayerMode.Normal) {
-      _timeString = durationToString(value.position);
+      _timeString = durationToString(value.position) +
+          ' / ' +
+          durationToString(value.duration);
     } else {
       _timeString = '直播中';
     }
@@ -188,7 +181,6 @@ class UILayerState extends State<UILayer> {
     }
     return Stack(
       fit: StackFit.expand,
-      overflow: Overflow.visible,
       children: <Widget>[
         /// loading 界面
         Visibility(
@@ -234,12 +226,13 @@ class UILayerState extends State<UILayer> {
         /// 触控、滑动等操作
         VideoGesture(
           playerState: widget.playerState,
+          controller: widget.controller,
           uiState: this,
         ),
 
         /// AppBar
         Visibility(
-          visible: !_inputMode,
+          visible: widget.playerState.fullScreen && !_inputMode,
           child: AnimatedPositioned(
             left: 0,
             right: 0,
@@ -260,7 +253,7 @@ class UILayerState extends State<UILayer> {
               child: AppBar(
                 backgroundColor: Colors.transparent,
                 elevation: 0,
-                title: Text(widget.playerState.name),
+                title: Text(widget.playerState.name ?? ''),
                 actions: widget.playerState.config.actions,
               ),
             ),
@@ -298,13 +291,33 @@ class UILayerState extends State<UILayer> {
                     visible: widget.playerState.mode == DanPlayerMode.Normal,
                     child: DanPlayerProgressBar(
                       theme: widget.config,
-                      playerState: widget.playerState,
+                      controller: widget.controller,
                       uiState: this,
                     ),
                   ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.start,
-                    children: buttons,
+                    children: [
+                      ...buttons,
+                      Expanded(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: <Widget>[
+                            MyIconButton(
+                              onTap: (state) {
+                                print('全屏');
+                                widget.playerState.fullScreen = !state.state;
+                                state.state = !state.state;
+                              },
+                              fromIcon: 0xe6e8,
+                              toIcon: 0xe6d9,
+                              size: 24,
+                              state: widget.playerState.fullScreen,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

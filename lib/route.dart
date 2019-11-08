@@ -36,3 +36,22 @@ class TransparentRoute<T> extends PageRoute<T> {
   @override
   Duration get transitionDuration => Duration.zero;
 }
+
+class FullScreenRoute extends PageRoute {
+  final Color barrierColor;
+  final String barrierLabel;
+  final bool maintainState;
+  final Duration transitionDuration;
+
+  FullScreenRoute(
+      {this.barrierColor = Colors.transparent,
+      this.barrierLabel,
+      this.maintainState,
+      this.transitionDuration});
+
+  @override
+  Widget buildPage(BuildContext context, Animation<double> animation,
+      Animation<double> secondaryAnimation) {
+    return null;
+  }
+}

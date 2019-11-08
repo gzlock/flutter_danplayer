@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+part of '../danplayer.dart';
 
 class MyIconButton extends StatefulWidget {
   final int fromIcon, toIcon;
@@ -14,6 +14,7 @@ class MyIconButton extends StatefulWidget {
     this.state: true,
     this.size: 32,
   })  : assert(onTap != null),
+        assert(state != null),
         super(key: key);
 
   @override
@@ -35,6 +36,7 @@ class MyIconButtonState extends State<MyIconButton> {
   void initState() {
     super.initState();
     _state = widget.state;
+    print('buttons initState $_state');
   }
 
   @override

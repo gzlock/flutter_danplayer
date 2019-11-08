@@ -1,14 +1,29 @@
 library flutter_danplayer;
 
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
-import 'danmaku_layer.dart';
-import 'ui_layer.dart';
+import './utils.dart';
+import './route.dart';
+import './video_gesture.dart';
+
+part 'ui/ui_layer.dart';
+
+part 'ui/progress_bar.dart';
+
+part 'ui/post_danmaku_layer.dart';
+
+part 'ui/danmaku_layer.dart';
+
+part 'ui/buttons.dart';
+
+part 'controller.dart';
 
 ///
 ///
@@ -88,7 +103,23 @@ class Danmaku {
   }
 
   Map<String, dynamic> toJson() {
-    return {'text': text, 'duration': currentTime.inMilliseconds};
+    var type;
+    switch (type) {
+      case DanmakuType.Top:
+        type = 0;
+        break;
+      case DanmakuType.Bottom:
+        type = 2;
+        break;
+      default:
+        type = 1;
+        break;
+    }
+    return {
+      'text': text,
+      'duration': currentTime.inMilliseconds,
+      'type': type,
+    };
   }
 
   static Danmaku fromJson(Map<String, dynamic> map) {
@@ -113,18 +144,15 @@ class Danmaku {
 }
 
 class DanPlayer extends StatefulWidget {
-  final String name, video;
-  final bool autoPlay;
   final DanPlayerMode mode;
   final DanPlayerConfig config;
   final Duration uiFadeOutDuration, uiFadeOutSpeed;
   final Future<bool> Function(Danmaku danmaku) onBeforeSubmit;
+  final DanPlayerController controller;
 
   const DanPlayer({
     Key key,
-    this.name: 'DanPlayer',
-    @required this.video,
-    this.autoPlay: true,
+    @required this.controller,
     this.mode: DanPlayerMode.Normal,
     this.uiFadeOutDuration: const Duration(seconds: 2),
     this.uiFadeOutSpeed: const Duration(milliseconds: 200),
@@ -136,34 +164,27 @@ class DanPlayer extends StatefulWidget {
   DanPlayerState createState() => DanPlayerState();
 }
 
-class DanPlayerState extends State<DanPlayer> {
-  final List<Function(VideoPlayerValue value)> _listeners = [];
+class DanPlayerState extends State<DanPlayer>
+    with AutomaticKeepAliveClientMixin {
   final GlobalKey<DanmakuLayerState> _danmakuLayer = GlobalKey();
-  final GlobalKey<UILayerState> _ui = GlobalKey();
   final GlobalKey _container = GlobalKey();
   String name;
   VideoPlayerController _controller;
   bool _displayDanmkau;
-  bool _play;
+  bool _play = false;
   DanPlayerConfig config;
   double _videoAspectRatio = 1;
   DanPlayerMode mode;
   VideoPlayerValue _videoValue;
+  bool _fullScreen = false;
+  DataSource _ds;
 
   VideoPlayerValue get videoValue => _videoValue;
-
-  @override
-  void dispose() {
-    SystemChrome.restoreSystemUIOverlays();
-    SystemChrome.setEnabledSystemUIOverlays(SystemUiOverlay.values);
-    _controller.dispose();
-    super.dispose();
-  }
+  StreamSubscription _dataSourceListen, _volumeListen;
 
   @override
   void initState() {
     super.initState();
-    SystemChrome.setEnabledSystemUIOverlays([]);
     config = widget.config;
     if (config == null) {
       config = DanPlayerConfig(
@@ -177,31 +198,76 @@ class DanPlayerState extends State<DanPlayer> {
         ),
       );
     }
-    setVideo(widget.video, name: widget.name, mode: widget.mode);
-    addListener(_initVideoSize);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fullScreen = MediaQuery.of(context).orientation == Orientation.landscape;
+      setState(() {});
+    });
+    _dataSourceListen =
+        widget.controller._inputStream.stream.listen(_setDataSource);
   }
 
-  void _initVideoSize(VideoPlayerValue value) {
-    removeListener(_initVideoSize);
-    _videoAspectRatio = value.aspectRatio;
-    setState(() {});
-  }
-
-  void setVideo(String video,
-      {DanPlayerMode mode: DanPlayerMode.Normal, String name: 'Danplayer'}) {
-    this.name = name;
-    this.mode = mode;
-    _play = widget.autoPlay;
-    if (_controller?.dataSource == video) return;
+  @override
+  void dispose() {
+    // print('danplayer dispose');
+    _dataSourceListen?.cancel();
+    _volumeListen?.cancel();
     _controller?.dispose();
-    _controller = VideoPlayerController.network(video)..initialize();
-    if (widget.autoPlay)
-      _controller.play();
-    else
-      _controller.pause();
+    super.dispose();
+  }
+
+  void _setDataSource(ds) {
+    if (ds is DataSource == false) return;
+    print('_setDataSource $ds');
+    if (_ds == ds) return;
+    _controller?.dispose();
+    _ds = ds;
+    widget.controller._outputStream.sink.add(ds);
+    _play = ds._autoPlay;
+    name = ds._title ?? 'DanPlayer';
+
+    switch (_ds._type) {
+      case DataSourceType.asset:
+        _controller = VideoPlayerController.asset(ds._assetName,
+            package: ds._assetPackage);
+        break;
+      case DataSourceType.file:
+        _controller = VideoPlayerController.file(ds._file);
+        break;
+      case DataSourceType.network:
+        _controller = VideoPlayerController.network(ds._url);
+        break;
+    }
+    _controller.initialize();
     _controller.addListener(_listener);
     setState(() {});
+    _controller.addListener(_initVideoSize);
   }
+
+  @override
+  bool get wantKeepAlive => true;
+
+  void _initVideoSize() {
+    if (initialized == false) return;
+    _controller.removeListener(_initVideoSize);
+    _videoAspectRatio = _controller.value.aspectRatio;
+    setState(() {});
+  }
+
+//  void setVideo(String video,
+//      {DanPlayerMode mode: DanPlayerMode.Normal, String name: 'Danplayer'}) {
+//    this.name = name;
+//    this.mode = mode;
+//    _play = widget.autoPlay;
+//    if (_controller?.dataSource == video) return;
+//    _controller?.dispose();
+//    _controller = VideoPlayerController.network(video)..initialize();
+//    if (widget.autoPlay)
+//      _controller.play();
+//    else
+//      _controller.pause();
+//    _controller.addListener(_listener);
+//    setState(() {});
+//  }
 
   void seekTo(Duration moment) async {
     if (moment < Duration.zero || moment > _videoValue.duration) return;
@@ -213,22 +279,11 @@ class DanPlayerState extends State<DanPlayer> {
     this._danmakuLayer?.currentState?.fillDanmakus(danmakus);
   }
 
-  void addListener(void Function(VideoPlayerValue value) listener) {
-    if (_listeners.contains(listener)) return;
-    _listeners.add(listener);
-  }
-
-  void removeListener(Function listener) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _listeners.remove(listener);
-    });
-  }
-
   void _listener() {
     _videoValue = _controller.value;
     if (!_videoValue.initialized) return;
     print('danplayer listener: $_videoValue');
-    _listeners.forEach((func) => func(_videoValue));
+    widget.controller._outputStream.add(_controller.value);
   }
 
   set displayDanmkau(bool value) {
@@ -240,10 +295,11 @@ class DanPlayerState extends State<DanPlayer> {
 
   set play(bool play) {
     _play = play;
-    if (play)
+    if (play) {
       _controller?.play();
-    else
+    } else {
       _controller?.pause();
+    }
   }
 
   get play => _play;
@@ -252,8 +308,55 @@ class DanPlayerState extends State<DanPlayer> {
     _controller.setVolume(value);
   }
 
-  double get volume =>
-      _controller.value?.initialized == true ? _controller.value.volume : 1;
+  get fullScreen => _fullScreen;
+
+  set fullScreen(bool value) {
+    _fullScreen = value;
+    if (_fullScreen) {
+      /// 隐藏系统栏
+      _hideStatusBar();
+
+      /// 只允许横向
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else {
+      /// 恢复系统栏
+      _showStatusBar();
+
+      () async {
+        /// 恢复竖屏
+        await SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+        ]);
+
+        /// 允许所有方向
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.portraitDown,
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+      }();
+    }
+    widget.controller._outputStream.add(FullScreenInfo(_fullScreen));
+  }
+
+  void _hideStatusBar() {
+    SystemChrome.setEnabledSystemUIOverlays([]);
+  }
+
+  void _showStatusBar() {
+    SystemChrome.restoreSystemUIOverlays();
+    SystemChrome.setEnabledSystemUIOverlays(SystemUiOverlay.values);
+  }
+
+  bool get initialized {
+    return _controller?.value?.initialized == true;
+  }
+
+  double get volume => initialized ? _controller.value.volume : 1;
 
   void stop() {
     _controller.pause();
@@ -262,16 +365,18 @@ class DanPlayerState extends State<DanPlayer> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Container(
       key: _container,
       constraints: BoxConstraints.expand(),
       child: Stack(
+        overflow: Overflow.clip,
         children: <Widget>[
           Container(color: Colors.black),
 
           /// 视频画面
           Visibility(
-            visible: _controller.value.initialized,
+            visible: initialized,
             child: Center(
               child: AspectRatio(
                 aspectRatio: _videoAspectRatio,
@@ -291,14 +396,14 @@ class DanPlayerState extends State<DanPlayer> {
           ),
           DanmakuLayer(
             key: _danmakuLayer,
-            playerState: this,
+            controller: widget.controller,
           ),
           UILayer(
-            key: _ui,
             config: config,
             fadeOutDuration: widget.uiFadeOutDuration,
             fadeOutSpeed: widget.uiFadeOutSpeed,
             playerState: this,
+            controller: widget.controller,
           ),
         ],
       ),

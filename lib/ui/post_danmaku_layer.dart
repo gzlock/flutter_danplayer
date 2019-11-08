@@ -1,7 +1,4 @@
-import 'package:danplayer/buttons.dart';
-import 'package:danplayer/danplayer.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+part of '../danplayer.dart';
 
 class PostDanmakuLayer extends StatefulWidget {
   final DanPlayerConfig theme;

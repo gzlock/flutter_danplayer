@@ -1,12 +1,9 @@
-import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
-
-import 'danplayer.dart';
+part of '../danplayer.dart';
 
 class DanmakuLayer extends StatefulWidget {
-  final DanPlayerState playerState;
+  final DanPlayerController controller;
 
-  const DanmakuLayer({Key key, @required this.playerState}) : super(key: key);
+  const DanmakuLayer({Key key, @required this.controller}) : super(key: key);
 
   @override
   State<StatefulWidget> createState() => DanmakuLayerState();
@@ -19,7 +16,13 @@ class DanmakuLayerState extends State<DanmakuLayer> {
   @override
   void initState() {
     super.initState();
-    widget.playerState.addListener(listener);
+    widget.controller.addPositionChanged(listener);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removePositionChanged(listener);
+    super.dispose();
   }
 
   void listener(VideoPlayerValue value) {

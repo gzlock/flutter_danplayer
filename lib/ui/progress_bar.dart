@@ -1,20 +1,16 @@
-import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
-
-import 'danplayer.dart';
-import 'ui_layer.dart';
+part of '../danplayer.dart';
 
 class DanPlayerProgressBar extends StatefulWidget {
   final DanPlayerConfig theme;
   final double barHeight;
-  final DanPlayerState playerState;
+  final DanPlayerController controller;
   final UILayerState uiState;
 
   const DanPlayerProgressBar({
     Key key,
     this.theme,
     this.barHeight = 2,
-    @required this.playerState,
+    @required this.controller,
     @required this.uiState,
   }) : super(key: key);
 
@@ -25,32 +21,41 @@ class DanPlayerProgressBar extends StatefulWidget {
 class DanPlayerProgressBarState extends State<DanPlayerProgressBar> {
   final GlobalKey _container = GlobalKey();
   final Size handlerSize = const Size(10, 10);
-  double _width = 0, _playerX = 0, _bufferedX = 0, _handlerX = 0;
+  double _width = 0, _playingX = 0, _bufferedX = 0, _handlerX = 0;
   bool _isDragging = false;
   Duration _handlerDuration = Duration(milliseconds: 100);
 
   @override
   void initState() {
     super.initState();
-    widget.playerState.addListener(listener);
+    widget.controller.addPositionChanged(listener);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final RenderBox box = _container.currentContext.findRenderObject();
       _width = box.size.width;
     });
   }
 
+  @override
+  void dispose() {
+    widget.controller.removePositionChanged(listener);
+    super.dispose();
+  }
+
+  VideoPlayerValue _videoValue;
+
   void listener(VideoPlayerValue value) {
+    _videoValue = value;
     if (value.duration == null) return;
     final current =
         value.position.inMilliseconds / value.duration.inMilliseconds;
-    _playerX = _width * current;
+    _playingX = _width * current;
     _bufferedX = 0;
     if (value.buffered?.isNotEmpty == true) {
       _bufferedX = _width *
           (value.buffered[0].end.inMilliseconds /
               value.duration.inMilliseconds);
     }
-    if (_isDragging == false) _handlerX = _playerX;
+    if (_isDragging == false) _handlerX = _playingX;
     _update();
   }
 
@@ -60,12 +65,11 @@ class DanPlayerProgressBarState extends State<DanPlayerProgressBar> {
 
   void _seekTo(double x, {bool seek: true}) {
     if (x < 0 || x > _width) return;
-    _playerX = x;
+    _playingX = x;
     _handlerX = x;
-    if (seek && widget.playerState.videoValue != null) {
-      final millisecond =
-          x / _width * widget.playerState.videoValue.duration.inMilliseconds;
-      widget.playerState.seekTo(Duration(milliseconds: millisecond.toInt()));
+    if (seek && _videoValue != null) {
+      final millisecond = x / _width * _videoValue.duration.inMilliseconds;
+      widget.controller.seekTo(Duration(milliseconds: millisecond.toInt()));
     }
     setState(() {});
   }
@@ -89,7 +93,7 @@ class DanPlayerProgressBarState extends State<DanPlayerProgressBar> {
         _seekTo(details.localPosition.dx, seek: false);
       },
       onPanUpdate: (DragUpdateDetails details) {
-        final x = _playerX + details.delta.dx;
+        final x = _playingX + details.delta.dx;
         _seekTo(x);
       },
       onPanEnd: (_) {
@@ -120,7 +124,7 @@ class DanPlayerProgressBarState extends State<DanPlayerProgressBar> {
 
             /// 已经播放区域
             Container(
-              width: _playerX,
+              width: _playingX,
               height: widget.barHeight,
               color: widget.theme.progressBarColor,
             ),

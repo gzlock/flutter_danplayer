@@ -3,6 +3,7 @@ import 'package:example/vod.dart';
 import 'package:flutter/material.dart';
 
 import 'custom.dart';
+import 'listview.dart';
 import 'live.dart';
 
 void main() {
@@ -66,12 +67,12 @@ class _MyHomePageState extends State<MyHomePage> {
                   RaisedButton(
                     color: Colors.blue,
                     child: Text(
-                      'VOD Demo',
+                      'Demo',
                       style: TextStyle(color: Colors.white),
                     ),
                     onPressed: () {
                       Navigator.push(context,
-                          MaterialPageRoute(builder: (_) => VODModeDemo()));
+                          MaterialPageRoute(builder: (_) => VODDemo()));
                     },
                   )
                 ],
@@ -92,12 +93,12 @@ class _MyHomePageState extends State<MyHomePage> {
                   RaisedButton(
                     color: Colors.green,
                     child: Text(
-                      'Live Demo',
+                      'Demo',
                       style: TextStyle(color: Colors.white),
                     ),
                     onPressed: () {
                       Navigator.push(context,
-                          MaterialPageRoute(builder: (_) => LiveModeDemo()));
+                          MaterialPageRoute(builder: (_) => LiveDemo()));
                     },
                   )
                 ],
@@ -118,12 +119,37 @@ class _MyHomePageState extends State<MyHomePage> {
                   RaisedButton(
                     color: Colors.orange,
                     child: Text(
-                      'Custom Demo',
+                      'Demo',
                       style: TextStyle(color: Colors.white),
                     ),
                     onPressed: () {
                       Navigator.push(context,
                           MaterialPageRoute(builder: (_) => CustomDemo()));
+                    },
+                  )
+                ],
+              ),
+            ),
+          ),
+          Card(
+            child: Padding(
+              padding: EdgeInsets.all(5),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'The DanPlayer in scrollable widget',
+                    softWrap: true,
+                  ),
+                  RaisedButton(
+                    color: Colors.red,
+                    child: Text(
+                      'Demo',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    onPressed: () {
+                      Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => InListView()));
                     },
                   )
                 ],

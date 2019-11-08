@@ -1,9 +1,9 @@
 import 'package:danplayer/danplayer.dart';
-import 'package:danplayer/ui_layer.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 class VideoGesture extends StatefulWidget {
+  final DanPlayerController controller;
   final DanPlayerState playerState;
   final UILayerState uiState;
 
@@ -11,6 +11,7 @@ class VideoGesture extends StatefulWidget {
     Key key,
     @required this.playerState,
     @required this.uiState,
+    @required this.controller,
   }) : super(key: key);
 
   @override
@@ -29,8 +30,14 @@ class VideoGestureState extends State<VideoGesture> {
   @override
   void initState() {
     super.initState();
-    widget.playerState.addListener(listener);
+    widget.controller.addPositionChanged(listener);
     WidgetsBinding.instance.addPostFrameCallback(init);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removePositionChanged(listener);
+    super.dispose();
   }
 
   void init(_) {
@@ -125,7 +132,7 @@ class VideoGestureState extends State<VideoGesture> {
           },
           onVerticalDragUpdate: (DragUpdateDetails details) {
             if (!_changingVolume) return;
-            print('音量 onPanUpdate');
+            // print('音量 onPanUpdate');
             final dy = details.localPosition.dy - _volumeY;
             if (dy.abs() > 20) {
               final value = dy > 0 ? 1 : -1;
@@ -136,6 +143,7 @@ class VideoGestureState extends State<VideoGesture> {
           },
           onVerticalDragEnd: (_) {
             _changingVolume = false;
+            setState(() {});
           },
           onHorizontalDragStart: (DragStartDetails details) {
             _videoDurationOriginal = details.localPosition;
@@ -146,9 +154,10 @@ class VideoGestureState extends State<VideoGesture> {
             if (dx.abs() > 50) {
               final value = dx > 0 ? 1 : -1;
               _positionChange += value * 5;
-              widget.playerState.seekTo(Duration(
+              final to = Duration(
                   milliseconds: _playerValue.position.inMilliseconds +
-                      value * 5 * Duration.millisecondsPerSecond));
+                      value * 5 * Duration.millisecondsPerSecond);
+              widget.controller.seekTo(to);
               _videoDurationOriginal = details.localPosition;
             }
             setState(() {});
