@@ -1,5 +1,4 @@
-import 'package:danplayer/danplayer.dart';
-import 'package:flutter/material.dart';
+part of './danplayer.dart';
 
 class TransparentRoute<T> extends PageRoute<T> {
   final WidgetBuilder builder;

@@ -10,7 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
 import './utils.dart';
-import './route.dart';
+
 import './video_gesture.dart';
 
 part 'ui/ui_layer.dart';
@@ -26,6 +26,8 @@ part 'ui/buttons.dart';
 part 'controller.dart';
 
 part 'ui/monitor.dart';
+
+part 'route.dart';
 
 ///
 ///
