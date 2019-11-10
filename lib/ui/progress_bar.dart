@@ -134,7 +134,7 @@ class DanPlayerProgressBarState extends State<DanPlayerProgressBar> {
               duration: _handlerDuration,
               left: _handlerX,
               top: -4,
-              child: widget.theme.progressBarHandler,
+              child: widget.theme.progressBarIndicator,
             ),
           ],
         ),

@@ -19,9 +19,6 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'DanPlayer Demo',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
       home: MyHomePage(title: 'DanPlayer Demo'),
     );
   }

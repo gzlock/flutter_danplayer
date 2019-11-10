@@ -17,6 +17,10 @@ class _VODDemo extends State<VODDemo> {
     _controller = DanPlayerController();
     _controller.setDataSource(
         DataSource.network(url, autoPlay: true, title: 'Network Video'));
+    Future.delayed(Duration(seconds: 2)).then((_) {
+      _controller.setDataSource(
+          DataSource.network(url, autoPlay: false, title: '第二个视频'));
+    });
   }
 
   @override
@@ -27,6 +31,10 @@ class _VODDemo extends State<VODDemo> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(body: DanPlayer(controller: _controller));
+    return Scaffold(
+        body: DanPlayer(
+      controller: _controller,
+      fullScreen: true,
+    ));
   }
 }

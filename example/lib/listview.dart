@@ -14,7 +14,7 @@ class _InListView extends State<InListView>
     with SingleTickerProviderStateMixin {
   ScrollController _scrollController = ScrollController();
   TabController _tabController;
-  DanPlayerController _playerController;
+  DanPlayerController _controller;
 
   final _tabs = [
     {'id': 1, 'title': '简介'},
@@ -24,17 +24,17 @@ class _InListView extends State<InListView>
   @override
   void initState() {
     super.initState();
-    _playerController = DanPlayerController();
+    _controller = DanPlayerController();
     _scrollController = ScrollController();
     _tabController = TabController(length: _tabs.length, vsync: this);
 
-    _playerController.setDataSource(
+    _controller.setDataSource(
         DataSource.network(url, autoPlay: true, title: 'Network Video'));
   }
 
   @override
   void dispose() {
-    _playerController?.dispose();
+    _controller?.dispose();
     _tabController?.dispose();
     _scrollController?.dispose();
     super.dispose();
@@ -60,7 +60,7 @@ class _InListView extends State<InListView>
               label: Text('播放'),
             ),
             child: DanPlayer(
-              controller: _playerController,
+              controller: _controller,
             ),
           ),
           SliverPersistentHeader(
@@ -106,6 +106,7 @@ class _InListView extends State<InListView>
   }
 }
 
+/// Tab Bar
 class SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
   final TabBar widget;
   final Color color;

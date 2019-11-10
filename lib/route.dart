@@ -1,3 +1,4 @@
+import 'package:danplayer/danplayer.dart';
 import 'package:flutter/material.dart';
 
 class TransparentRoute<T> extends PageRoute<T> {
@@ -42,16 +43,19 @@ class FullScreenRoute extends PageRoute {
   final String barrierLabel;
   final bool maintainState;
   final Duration transitionDuration;
+  final WidgetBuilder builder;
 
   FullScreenRoute(
-      {this.barrierColor = Colors.transparent,
-      this.barrierLabel,
-      this.maintainState,
-      this.transitionDuration});
+    this.builder, {
+    this.barrierLabel,
+    this.barrierColor = Colors.blue,
+    this.maintainState = true,
+    this.transitionDuration = Duration.zero,
+  });
 
   @override
   Widget buildPage(BuildContext context, Animation<double> animation,
       Animation<double> secondaryAnimation) {
-    return null;
+    return Scaffold(body: builder(context));
   }
 }

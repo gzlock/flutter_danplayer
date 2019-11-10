@@ -88,6 +88,7 @@ class UILayerState extends State<UILayer> {
     _isShow = false;
     _titleTop = -appBarHeight;
     _controllerBottom = -controllerHeight;
+    widget.controller._outputStream.add(UIInfo(false));
     setState(() {});
   }
 
@@ -97,14 +98,13 @@ class UILayerState extends State<UILayer> {
     if (_isShow == false)
       setState(() {
         _isShow = true;
+        widget.controller._outputStream.add(UIInfo(true));
       });
   }
 
   void _cancelTimer() {
-    if (_fadeOutTimer?.isActive == true) {
-      _fadeOutTimer.cancel();
-      _fadeOutTimer = null;
-    }
+    _fadeOutTimer?.cancel();
+    _fadeOutTimer = null;
   }
 
   @override
@@ -120,6 +120,7 @@ class UILayerState extends State<UILayer> {
         onTap: (state) {
           widget.playerState.play = !widget.playerState.play;
           state.state = widget.playerState.play;
+          hide();
         },
       ),
       Container(width: 5),
@@ -140,6 +141,7 @@ class UILayerState extends State<UILayer> {
         toIcon: 0xe696,
         onTap: (state) {
           state.state = !state.state;
+          hide();
         },
       ));
       buttons.add(Container(width: 10));

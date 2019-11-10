@@ -20,9 +20,10 @@ class _CustomDemo extends State<CustomDemo> {
         DataSource.network(url, autoPlay: true, title: 'Network Video'));
   }
 
+
   @override
   void dispose() {
-    _controller?.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -33,7 +34,7 @@ class _CustomDemo extends State<CustomDemo> {
         controller: _controller,
         config: DanPlayerConfig(
           backgroundDeepColor: Colors.blue.withOpacity(0.5),
-          progressBarHandler: Text('🚚'),
+          progressBarIndicator: Text('🚚'),
           loadingWidget: LoadingView(
             duration: Duration(seconds: 1),
             child: Text(
