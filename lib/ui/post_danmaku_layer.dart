@@ -3,22 +3,124 @@ part of '../danplayer.dart';
 class PostDanmakuLayer extends StatefulWidget {
   final DanPlayerConfig theme;
   final double appBarHeight;
-  final Future<bool> Function(Danmaku danmaku) onBeforeSubmit;
+  final Duration currentTime;
 
-  const PostDanmakuLayer(
-      {Key key, this.theme, this.onBeforeSubmit, this.appBarHeight})
-      : super(key: key);
+  const PostDanmakuLayer({
+    Key key,
+    this.theme,
+    this.appBarHeight,
+    @required this.currentTime,
+  }) : super(key: key);
 
   @override
   PostDanmakuLayerState createState() => PostDanmakuLayerState();
 }
 
+const double iconButtonSize = 30, colorButtonSize = 20;
+
 class PostDanmakuLayerState extends State<PostDanmakuLayer> {
   final TextEditingController _controller = TextEditingController();
   final _danmakuOptions = [
-    OptionValue(0xe69b, 0), // 顶部
-    OptionValue(0xe69f, 1), // 移动
-    OptionValue(0xe69d, 2), // 底部
+    OptionValue(
+      0,
+      (context, selected, color) => Icon(
+        IconData(0xe69b, fontFamily: 'iconfont', fontPackage: 'danplayer'),
+        color: color,
+        size: iconButtonSize,
+      ),
+    ), // 顶部
+    OptionValue(
+      1,
+      (context, selected, color) => Icon(
+        IconData(0xe69f, fontFamily: 'iconfont', fontPackage: 'danplayer'),
+        color: color,
+        size: iconButtonSize,
+      ),
+    ), // 移动
+    OptionValue(
+      2,
+      (context, selected, color) => Icon(
+        IconData(0xe69d, fontFamily: 'iconfont', fontPackage: 'danplayer'),
+        color: color,
+        size: iconButtonSize,
+      ),
+    ), // 底部
+  ];
+  final _danmakuColors = [
+    OptionValue(
+      Colors.white,
+      (context, selected, color) => Container(
+        width: colorButtonSize,
+        height: colorButtonSize,
+        decoration: BoxDecoration(
+            color: Colors.white, border: Border.all(color: color, width: 2)),
+      ),
+    ),
+    OptionValue(
+      Colors.black,
+      (context, selected, color) => Container(
+        width: colorButtonSize,
+        height: colorButtonSize,
+        decoration: BoxDecoration(
+            color: Colors.black, border: Border.all(color: color, width: 2)),
+      ),
+    ),
+    OptionValue(
+      Colors.red,
+      (context, selected, color) => Container(
+        width: colorButtonSize,
+        height: colorButtonSize,
+        decoration: BoxDecoration(
+            color: Colors.red, border: Border.all(color: color, width: 2)),
+      ),
+    ),
+    OptionValue(
+      Colors.green,
+      (context, selected, color) => Container(
+        width: colorButtonSize,
+        height: colorButtonSize,
+        decoration: BoxDecoration(
+            color: Colors.green, border: Border.all(color: color, width: 2)),
+      ),
+    ),
+    OptionValue(
+      Colors.blue,
+      (context, selected, color) => Container(
+        width: colorButtonSize,
+        height: colorButtonSize,
+        decoration: BoxDecoration(
+            color: Colors.blue, border: Border.all(color: color, width: 2)),
+      ),
+    ),
+    OptionValue(
+      Colors.pinkAccent,
+      (context, selected, color) => Container(
+        width: colorButtonSize,
+        height: colorButtonSize,
+        decoration: BoxDecoration(
+            color: Colors.pinkAccent,
+            border: Border.all(color: color, width: 2)),
+      ),
+    ),
+    OptionValue(
+      Colors.yellow,
+      (context, selected, color) => Container(
+        width: colorButtonSize,
+        height: colorButtonSize,
+        decoration: BoxDecoration(
+            color: Colors.yellow, border: Border.all(color: color, width: 2)),
+      ),
+    ),
+    OptionValue(
+      Colors.lightGreenAccent,
+      (context, selected, color) => Container(
+        width: colorButtonSize,
+        height: colorButtonSize,
+        decoration: BoxDecoration(
+            color: Colors.lightGreenAccent,
+            border: Border.all(color: color, width: 2)),
+      ),
+    ),
   ];
 
   @override
@@ -27,15 +129,15 @@ class PostDanmakuLayerState extends State<PostDanmakuLayer> {
     super.dispose();
   }
 
-  void submit() async {
+  void _submit() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
-    final danmaku = Danmaku(text: text);
-    bool isSubmit = true;
-    if (widget.onBeforeSubmit != null) {
-      isSubmit = await widget.onBeforeSubmit(danmaku);
-    }
-    if (isSubmit) Navigator.pop(context, danmaku);
+    final danmaku = Danmaku(
+      text: text,
+      borderColor: Colors.white,
+      currentTime: widget.currentTime,
+    );
+    Navigator.pop(context, danmaku);
   }
 
   @override
@@ -49,7 +151,7 @@ class PostDanmakuLayerState extends State<PostDanmakuLayer> {
           if (event.runtimeType != RawKeyUpEvent) return;
           if (event.logicalKey == LogicalKeyboardKey.enter) {
             print('pressed enter');
-            return submit();
+            return _submit();
           }
           if (event.logicalKey == LogicalKeyboardKey.escape) {
             print('pressed esc');
@@ -73,7 +175,8 @@ class PostDanmakuLayerState extends State<PostDanmakuLayer> {
               right: 0,
               child: Center(
                 child: Container(
-                  width: 300,
+                  padding: EdgeInsets.all(8),
+                  width: MediaQuery.of(context).size.width / 2,
                   decoration: BoxDecoration(
                     color: Colors.black.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(5),
@@ -87,8 +190,8 @@ class PostDanmakuLayerState extends State<PostDanmakuLayer> {
                       ),
                       OptionsGroup(
                         hint: '弹幕颜色',
-                        values: _danmakuOptions,
-                        defaultValue: _danmakuOptions[1],
+                        values: _danmakuColors,
+                        defaultValue: _danmakuColors[0],
                       ),
                     ],
                   ),
@@ -131,7 +234,7 @@ class PostDanmakuLayerState extends State<PostDanmakuLayer> {
                             autofocus: true,
                             controller: _controller,
                             textInputAction: TextInputAction.send,
-                            onSubmitted: (_) => submit(),
+                            onSubmitted: (_) => _submit(),
                             decoration: InputDecoration(
                               contentPadding: EdgeInsets.all(8),
                               border: InputBorder.none,
@@ -148,7 +251,7 @@ class PostDanmakuLayerState extends State<PostDanmakuLayer> {
                           style: TextStyle(color: Colors.white),
                         ),
                         onPressed: () {
-                          submit();
+                          _submit();
                         },
                       ),
                     ],

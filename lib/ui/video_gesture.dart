@@ -1,15 +1,11 @@
-import 'package:danplayer/danplayer.dart';
-import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
+part of '../danplayer.dart';
 
 class VideoGesture extends StatefulWidget {
   final DanPlayerController controller;
-  final DanPlayerState playerState;
   final UILayerState uiState;
 
   const VideoGesture({
     Key key,
-    @required this.playerState,
     @required this.uiState,
     @required this.controller,
   }) : super(key: key);
@@ -30,13 +26,13 @@ class VideoGestureState extends State<VideoGesture> {
   @override
   void initState() {
     super.initState();
-    widget.controller.addPositionChanged(listener);
-    WidgetsBinding.instance.addPostFrameCallback(init);
+    widget.controller.addSeek(listener);
+    SchedulerBinding.instance.addPostFrameCallback(init);
   }
 
   @override
   void dispose() {
-    widget.controller.removePositionChanged(listener);
+    widget.controller.removeSeek(listener);
     super.dispose();
   }
 
@@ -63,14 +59,14 @@ class VideoGestureState extends State<VideoGesture> {
             child: Container(
                 padding: EdgeInsets.all(5),
                 decoration: BoxDecoration(
-                  color: widget.playerState.config.backgroundColor,
+                  color: widget.controller.config.backgroundColor,
                   borderRadius: BorderRadius.circular(5),
                 ),
                 child: Row(
                   children: [
                     Icon(
                       IconData(
-                        widget.playerState.volume > 0 ? 0xe63d : 0xe63e,
+                        widget.controller.volume > 0 ? 0xe63d : 0xe63e,
                         fontFamily: 'iconfont',
                         fontPackage: 'danplayer',
                       ),
@@ -78,7 +74,7 @@ class VideoGestureState extends State<VideoGesture> {
                     ),
                     Container(width: 10),
                     Text(
-                      (widget.playerState.volume * 100).toStringAsFixed(0),
+                      (widget.controller.volume * 100).toStringAsFixed(0),
                       style: TextStyle(color: Colors.white),
                     ),
                   ],
@@ -94,7 +90,7 @@ class VideoGestureState extends State<VideoGesture> {
               child: Container(
                 padding: EdgeInsets.all(5),
                 decoration: BoxDecoration(
-                  color: widget.playerState.config.backgroundColor,
+                  color: widget.controller.config.backgroundColor,
                   borderRadius: BorderRadius.circular(5),
                 ),
                 child: Row(
@@ -112,13 +108,16 @@ class VideoGestureState extends State<VideoGesture> {
           ),
         ),
 
-        /// 滑动检测
+        /// 视频画面上的手势检测
         GestureDetector(
           onTap: () {
             if (_playerValue?.initialized != true) return;
             print('onTap');
             if (widget.uiState.isShow) {
-              widget.playerState.play = !widget.playerState.play;
+              if (widget.controller.playing)
+                widget.controller.pause();
+              else
+                widget.controller.play();
               widget.uiState.hide();
             } else {
               widget.uiState.show();
@@ -136,7 +135,7 @@ class VideoGestureState extends State<VideoGesture> {
             final dy = details.localPosition.dy - _volumeY;
             if (dy.abs() > 20) {
               final value = dy > 0 ? 1 : -1;
-              widget.playerState.volume += value * 0.1;
+              widget.controller.volume += value * 0.1;
               _volumeY = details.localPosition.dy;
             }
             setState(() {});

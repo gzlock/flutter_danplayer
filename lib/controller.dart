@@ -1,28 +1,61 @@
 part of './danplayer.dart';
 
-typedef DanPlayerPositionChanged = Function(VideoPlayerValue value);
-typedef DanPlayerFullScreenChanged = Function(bool isFullScreen);
-typedef DanPlayerPlayStateChanged = Function(bool isPlaying);
-typedef DanPlayerDataSourceChanged = Function(DataSource ds);
-typedef DanPlayerVolumeChanged = Function(double volume);
-typedef DanPlayerUIChanged = Function(bool show);
+typedef OnPlaying = Function(VideoPlayerValue value);
+typedef OnSeek = Function(VideoPlayerValue value);
+typedef OnChangedPosition = Function(VideoPlayerValue value);
+typedef OnFullScreenChanged = Function(bool isFullScreen);
+typedef OnPlayStateChanged = Function(bool isPlaying);
+typedef OnDataSourceChanged = Function(DataSource ds);
+typedef OnVolumeChanged = Function(double volume);
+typedef OnUIChanged = Function(bool show);
+typedef OnAddDanmaku = Function(Danmaku danmaku);
+typedef OnVideoInit = Function(VideoPlayerValue value);
 
-class FullScreenInfo {
-  final bool value;
-
-  FullScreenInfo(this.value);
+enum EventType {
+  playing,
+  seek,
+  fullScreenChanged,
+  volumeChanged,
+  uiVisibleChanged,
+  playStateChanged,
+  addDanmaku,
+  videoPlayerInit,
 }
 
-class PlayStateInfo extends FullScreenInfo {
-  PlayStateInfo(bool playState) : super(playState);
-}
+class EventData<T> {
+  final EventType type;
+  final T value;
 
-class UIInfo extends FullScreenInfo {
-  UIInfo(bool show) : super(show);
-}
+  EventData(this.type, this.value);
 
-class VolumeInfo {
-  double volume;
+  /// value is [VideoPlayerValue]
+  factory EventData.playing(T value) => EventData<T>(EventType.playing, value);
+
+  /// value is [bool]
+  factory EventData.fullScreenChanged(T value) =>
+      EventData<T>(EventType.fullScreenChanged, value);
+
+  /// value is [double], from 0 to 1
+  factory EventData.volumeChanged(T value) =>
+      EventData<T>(EventType.volumeChanged, value);
+
+  /// value is [VideoPlayerValue]
+  factory EventData.seek(T value) => EventData<T>(EventType.seek, value);
+
+  /// value is [bool]
+  factory EventData.uiVisibleChanged(T value) =>
+      EventData<T>(EventType.uiVisibleChanged, value);
+
+  /// value is [Danmaku]
+  factory EventData.addDanmaku(T value) =>
+      EventData<T>(EventType.addDanmaku, value);
+
+  /// value is [bool]
+  factory EventData.playState(T value) =>
+      EventData<T>(EventType.playStateChanged, value);
+
+  factory EventData.playerInit(T value) =>
+      EventData<T>(EventType.videoPlayerInit, value);
 }
 
 /// Entity classe for data sources.
@@ -42,37 +75,56 @@ class DataSource {
 
   bool _autoPlay;
 
+  DanPlayerMode _mode;
+
   DataSource._();
 
   /// Create file data source
-  factory DataSource.file(File file, {String title, bool autoPlay: true}) {
-    var ds = DataSource._();
-    ds._title = title;
-    ds._autoPlay = autoPlay;
-    ds._file = file;
-    ds._type = DataSourceType.file;
+  factory DataSource.file(
+    File file, {
+    String title,
+    bool autoPlay: true,
+    DanPlayerMode mode = DanPlayerMode.Normal,
+  }) {
+    var ds = DataSource._()
+      .._title = title
+      .._autoPlay = autoPlay
+      .._file = file
+      .._type = DataSourceType.file
+      .._mode = mode;
     return ds;
   }
 
   /// Create network data source
-  factory DataSource.network(String url, {String title, bool autoPlay: true}) {
-    var ds = DataSource._();
-    ds._title = title;
-    ds._autoPlay = autoPlay;
-    ds._url = url;
-    ds._type = DataSourceType.network;
-    return ds;
+  factory DataSource.network(
+    String url, {
+    String title,
+    bool autoPlay: true,
+    DanPlayerMode mode = DanPlayerMode.Normal,
+  }) {
+    return DataSource._()
+      .._title = title
+      .._autoPlay = autoPlay
+      .._url = url
+      .._type = DataSourceType.network
+      .._mode = mode;
   }
 
   /// Create asset data source
-  factory DataSource.asset(String assetName,
-      {String package, String title, bool autoPlay: true}) {
-    var ds = DataSource._();
-    ds._title = title;
-    ds._autoPlay = autoPlay;
-    ds._assetName = assetName;
-    ds._assetPackage = package;
-    ds._type = DataSourceType.asset;
+  factory DataSource.asset(
+    String assetName, {
+    String package,
+    String title,
+    bool autoPlay: true,
+    DanPlayerMode mode = DanPlayerMode.Normal,
+  }) {
+    var ds = DataSource._()
+      .._title = title
+      .._autoPlay = autoPlay
+      .._assetName = assetName
+      .._assetPackage = package
+      .._type = DataSourceType.asset
+      .._mode = mode;
     return ds;
   }
 
@@ -95,45 +147,118 @@ class DataSource {
       'autoPlay': _autoPlay,
       'url': _url,
       'file': _file,
+      'mode': _mode,
     });
   }
 }
 
 class DanPlayerController {
+  final Future<bool> Function(Danmaku danmaku) onBeforeSubmit;
+
   final StreamController<dynamic> _outputStream = StreamController.broadcast();
-  final List<DanPlayerPositionChanged> _position = [];
-  final List<DanPlayerFullScreenChanged> _fullScreen = [];
-  final List<DanPlayerPlayStateChanged> _playState = [];
-  final List<DanPlayerUIChanged> _ui = [];
-  final List<DanPlayerDataSourceChanged> _dataSource = [];
-  final List<DanPlayerVolumeChanged> _volume = [];
-  VideoPlayerController _videoPlayerController;
+  final List<OnSeek> _playingEvents = [];
+  final List<OnChangedPosition> _seekEvents = [];
+  final List<OnFullScreenChanged> _fullScreenEvents = [];
+  final List<OnPlayStateChanged> _playStateEvents = [];
+  final List<OnUIChanged> _uiEvents = [];
+  final List<OnDataSourceChanged> _dataSourceEvents = [];
+  final List<OnVolumeChanged> _volumeEvents = [];
+  final List<OnAddDanmaku> _addDanmakuEvents = [];
+  final List<OnVideoInit> _initEvents = [];
 
-  /// cache
-  VideoPlayerValue _videoPlayerValue;
-
-  DanPlayerController() {
-    _outputStream.stream.listen(_listen);
+  DanPlayerController({
+    this.onBeforeSubmit,
+    DanPlayerConfig config,
+    DataSource ds,
+  }) {
+    _config = config;
+    if (_config == null)
+      _config = DanPlayerConfig(
+        progressBarIndicator: Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            color: Colors.purpleAccent,
+            shape: BoxShape.circle,
+          ),
+        ),
+      );
+    _outputStream.stream.listen(_distributeEvents);
+    if (ds != null) setDataSource(ds);
   }
 
-  /// output
-  void _listen(dynamic data) {
-    if (data is PlayStateInfo) {
-      print('触发 PlayStateInfo ${data.value}');
-      _playState.forEach((fun) => fun(data.value));
-    } else if (data is FullScreenInfo) {
-      _fullScreen.forEach((fun) => fun(data.value));
-    } else if (data is VideoPlayerValue) {
-      _position.forEach((fun) => fun(data));
-    } else if (data is DataSource) {
-      _dataSource.forEach((fun) => fun(data));
-    } else if (data is UIInfo) {
-      _ui.forEach((fun) => fun(data.value));
+  DanPlayerConfig _config;
+  VideoPlayerController _videoPlayerController;
+  DataSource _ds;
+  bool _initialized = false;
+  bool _isPlaying = false;
+  double _volume = 1;
+  bool _fullScreen = false;
+  DanPlayerMode _mode;
+
+  DanPlayerMode get mode => _mode;
+
+  bool get initialized => _initialized;
+
+  bool get playing => _isPlaying;
+
+  DanPlayerConfig get config => _config;
+
+  /// cache
+  VideoPlayerValue videoPlayerValue;
+
+  double get volume => _volume;
+
+  set volume(double value) {
+    if (value != _volume) send(EventData.volumeChanged(value));
+    _volume = value;
+    _videoPlayerController?.setVolume(value);
+  }
+
+  bool get fullScreen => _fullScreen;
+
+  set fullScreen(bool value) {
+    if (_fullScreen != value) send(EventData.fullScreenChanged(value));
+    _fullScreen = value;
+  }
+
+  /// Distribute events
+  void _distributeEvents(dynamic data) {
+    if (data is EventData) {
+      switch (data.type) {
+        case EventType.playing:
+          _playingEvents.forEach((fun) => fun(data.value));
+          break;
+        case EventType.fullScreenChanged:
+          _fullScreenEvents.forEach((fun) => fun(data.value));
+          break;
+        case EventType.seek:
+          _seekEvents.forEach((fun) => fun(data.value));
+          break;
+        case EventType.volumeChanged:
+          _volumeEvents.forEach((fun) => fun(data.value));
+          break;
+        case EventType.uiVisibleChanged:
+          _uiEvents.forEach((fun) => fun(data.value));
+          break;
+        case EventType.addDanmaku:
+          _addDanmakuEvents.forEach((fun) => fun(data.value));
+          break;
+        case EventType.playStateChanged:
+          _playStateEvents.forEach((fun) => fun(data.value));
+          break;
+        case EventType.videoPlayerInit:
+          _initEvents.forEach((fun) => fun(data.value));
+          break;
+      }
     }
   }
 
   setDataSource(DataSource ds) {
     assert(ds != null);
+    _ds = ds;
+    _initialized = false;
+    _mode = ds._mode;
     _videoPlayerController?.dispose();
     switch (ds._type) {
       case DataSourceType.asset:
@@ -149,72 +274,159 @@ class DanPlayerController {
     }
     _videoPlayerController.initialize();
     if (ds._autoPlay) _videoPlayerController.play();
-    _videoPlayerController.addListener(_listener);
+    _videoPlayerController.addListener(_videoPlayerInit);
   }
 
-  void _listener() {
-    _videoPlayerValue = _videoPlayerController.value;
+  void _videoPlayerInit() {
+    if (_videoPlayerController.value?.initialized == true) {
+      _initialized = true;
+      videoPlayerValue = _videoPlayerController.value;
+      _videoPlayerController.removeListener(_videoPlayerInit);
+      send(EventData.playerInit(_videoPlayerController.value));
+      _videoPlayerController.addListener(_videoPlayerListener);
+    }
+  }
+
+  void _videoPlayerListener() {
+    videoPlayerValue = _videoPlayerController.value;
+    if (_isPlaying != videoPlayerValue.isPlaying) {
+      _isPlaying = videoPlayerValue.isPlaying;
+      send(EventData.playState(_isPlaying));
+    }
+    if (_volume != videoPlayerValue.volume) {
+      _volume = videoPlayerValue.volume;
+      send(EventData.volumeChanged(volume));
+    }
+    send(EventData.playing(videoPlayerValue));
   }
 
   dispose() {
-    _videoPlayerValue = null;
+    videoPlayerValue = null;
     _videoPlayerController?.dispose();
     _outputStream?.close();
-    _position.clear();
-    _fullScreen.clear();
-    _playState.clear();
-    _dataSource.clear();
+    _playingEvents.clear();
+    _fullScreenEvents.clear();
+    _playStateEvents.clear();
+    _dataSourceEvents.clear();
   }
 
-  addPositionChanged(DanPlayerPositionChanged event) {
-    if (_position.contains(event) == false) _position.add(event);
-    if (_videoPlayerValue != null) event(_videoPlayerValue);
+  /// The following is about the event methods
+  ///
+  send(EventData data) {
+    _outputStream.add(data);
   }
 
-  removePositionChanged(DanPlayerPositionChanged event) {
-    _position.remove(event);
+  addVideoPlayerInit(OnVideoInit event) {
+    if (_initEvents.contains(event) == false) _initEvents.add(event);
+    if (videoPlayerValue != null) event(videoPlayerValue);
   }
 
-  addFullScreenChanged(DanPlayerFullScreenChanged event) {
-    if (_fullScreen.contains(event) == false) _fullScreen.add(event);
+  removeVideoPlayerInit(OnVideoInit event) {
+    _initEvents.remove(event);
   }
 
-  removeFullScreenChanged(DanPlayerFullScreenChanged event) {
-    _fullScreen.remove(event);
+  addPlaying(OnPlaying event) {
+    if (_playingEvents.contains(event) == false) _playingEvents.add(event);
+    if (videoPlayerValue != null) event(videoPlayerValue);
   }
 
-  addPlayStateChanged(DanPlayerPlayStateChanged event) {
-    if (_playState.contains(event) == false) _playState.add(event);
-
-    if (_videoPlayerValue != null) event(_videoPlayerValue.isPlaying);
+  removePlaying(OnPlaying event) {
+    _playingEvents.remove(event);
   }
 
-  removePlayStateChanged(DanPlayerPlayStateChanged event) {
-    _playState.remove(event);
+  addSeek(OnSeek event) {
+    if (_seekEvents.contains(event) == false) _seekEvents.add(event);
+    if (videoPlayerValue != null) event(videoPlayerValue);
   }
 
-  addVolumeChanged(DanPlayerVolumeChanged event) {
-    if (_volume.contains(event) == false) _volume.add(event);
-    if (_videoPlayerValue != null) event(_videoPlayerValue.volume);
+  removeSeek(OnSeek event) {
+    _seekEvents.remove(event);
   }
 
-  removeVolumeChanged(DanPlayerVolumeChanged event) {
-    _volume.remove(event);
+  addFullScreenChanged(OnFullScreenChanged event) {
+    if (_fullScreenEvents.contains(event) == false)
+      _fullScreenEvents.add(event);
   }
 
-  addUIChanged(DanPlayerUIChanged event) {
-    if (_ui.contains(event) == false) _ui.add(event);
+  removeFullScreenChanged(OnFullScreenChanged event) {
+    _fullScreenEvents.remove(event);
   }
 
-  removeUIChanged(DanPlayerUIChanged event) {
-    _ui.remove(event);
+  addPlayStateChanged(OnPlayStateChanged event) {
+    if (_playStateEvents.contains(event) == false) _playStateEvents.add(event);
+
+    if (videoPlayerValue != null) event(videoPlayerValue.isPlaying);
+  }
+
+  removePlayStateChanged(OnPlayStateChanged event) {
+    _playStateEvents.remove(event);
+  }
+
+  addVolumeChanged(OnVolumeChanged event) {
+    if (_volumeEvents.contains(event) == false) _volumeEvents.add(event);
+    if (videoPlayerValue != null) event(videoPlayerValue.volume);
+  }
+
+  removeVolumeChanged(OnVolumeChanged event) {
+    _volumeEvents.remove(event);
+  }
+
+  addUIChanged(OnUIChanged event) {
+    if (_uiEvents.contains(event) == false) _uiEvents.add(event);
+  }
+
+  removeUIChanged(OnUIChanged event) {
+    _uiEvents.remove(event);
+  }
+
+  addAddDanmaku(OnAddDanmaku event) {
+    if (_addDanmakuEvents.contains(event) == false)
+      _addDanmakuEvents.add(event);
+  }
+
+  removeAddDanmaku(OnAddDanmaku event) {
+    _addDanmakuEvents.remove(event);
+  }
+
+  /// Normal methods
+  play() {
+    _videoPlayerController?.play();
+  }
+
+  pause() {
+    _videoPlayerController?.pause();
   }
 
   seekTo(Duration position) {
     _videoPlayerController?.seekTo(position);
+    send(EventData.seek(_videoPlayerController.value));
   }
 
-  volume(double value) {
-    _videoPlayerController?.setVolume(value);
+  addDanmaku(Danmaku danmaku) {
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      // print('controller addDanmaku $danmaku');
+      _outputStream.add(EventData.addDanmaku(danmaku));
+    });
+  }
+
+  addDanmakus(Iterable<Danmaku> danmakus) {
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      // print('controller addDanmakus $danmakus');
+      danmakus.forEach((d) => _outputStream.add(EventData.addDanmaku(d)));
+    });
+  }
+
+  DanPlayerController copyWith({DanPlayerConfig config}) {
+    return DanPlayerController(config: config)
+      .._initEvents.addAll(this._initEvents)
+      .._addDanmakuEvents.addAll(this._addDanmakuEvents)
+      .._playingEvents.addAll(this._playingEvents)
+      .._seekEvents.addAll(this._seekEvents)
+      .._dataSourceEvents.addAll(this._dataSourceEvents)
+      .._volumeEvents.addAll(this._volumeEvents)
+      .._fullScreenEvents.addAll(this._fullScreenEvents)
+      .._videoPlayerController = this._videoPlayerController
+      ..videoPlayerValue = this.videoPlayerValue
+      .._ds = this._ds;
   }
 }

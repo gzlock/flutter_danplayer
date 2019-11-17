@@ -1,20 +1,15 @@
 part of '../danplayer.dart';
 
 class UILayer extends StatefulWidget {
-  final DanPlayerConfig config;
-  final Duration fadeOutDuration;
-  final DanPlayerState playerState;
   final DanPlayerController controller;
-
-  final Duration fadeOutSpeed;
+  final bool fullScreen;
+  final VoidCallback onTapFullScreenButton;
 
   const UILayer({
     Key key,
-    this.config,
-    this.fadeOutDuration,
-    this.fadeOutSpeed,
-    @required this.playerState,
     @required this.controller,
+    this.fullScreen,
+    this.onTapFullScreenButton,
   }) : super(key: key);
 
   @override
@@ -27,7 +22,6 @@ class UILayerState extends State<UILayer> {
   double _titleTop = 0, _controllerBottom = 0;
   Timer _fadeOutTimer;
   bool _isShow = true, _isLoading = true, _inputMode = false;
-  String _timeString = '请稍候';
   VideoPlayerValue _playerValue;
   String _error = '';
 
@@ -36,40 +30,42 @@ class UILayerState extends State<UILayer> {
   @override
   void initState() {
     super.initState();
-    widget.controller.addPositionChanged(listener);
-    WidgetsBinding.instance.addPostFrameCallback(init);
+    widget.controller.addVideoPlayerInit(_init);
+    widget.controller.addPlaying(_playing);
+    widget.controller.addPlayStateChanged(_playState);
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      appBarHeight = kToolbarHeight + MediaQuery.of(context).padding.top;
+      setState(() {});
+    });
   }
 
   @override
   void dispose() {
     _cancelTimer();
-    widget.controller.removePositionChanged(listener);
+    widget.controller.removeSeek(_playing);
     super.dispose();
   }
 
-  void listener(VideoPlayerValue value) {
+  void _init(VideoPlayerValue value) {
+    _playerValue = value;
+    _isLoading = value.isBuffering;
+  }
+
+  void _playState(bool isPlaying) {
+    if (isPlaying)
+      hide();
+    else
+      show();
+  }
+
+  void _playing(VideoPlayerValue value) {
     if (value.hasError) {
       _error = value.errorDescription;
       return;
     }
     _playerValue = value;
-    if (_isLoading != value.isBuffering) {
-      _isLoading = value.isBuffering;
-      if (value.isPlaying) hide();
-    }
-    if (widget.playerState.mode == DanPlayerMode.Normal) {
-      _timeString = durationToString(value.position) +
-          ' / ' +
-          durationToString(value.duration);
-    } else {
-      _timeString = '直播中';
-    }
-    _playButton.currentState.state = widget.playerState.play;
-  }
-
-  void init(_) {
-    appBarHeight = kToolbarHeight + MediaQuery.of(context).padding.top;
-    setState(() {});
+    _isLoading = value.isBuffering;
+    _playButton.currentState?.state = widget.controller.playing;
   }
 
   /// immediately=true 立即隐藏UI
@@ -80,7 +76,7 @@ class UILayerState extends State<UILayer> {
     if (immediately) {
       _hide();
     } else {
-      _fadeOutTimer = Timer(widget.fadeOutDuration, _hide);
+      _fadeOutTimer = Timer(widget.controller.config.uiFadeOutDuration, _hide);
     }
   }
 
@@ -88,7 +84,7 @@ class UILayerState extends State<UILayer> {
     _isShow = false;
     _titleTop = -appBarHeight;
     _controllerBottom = -controllerHeight;
-    widget.controller._outputStream.add(UIInfo(false));
+    widget.controller._outputStream.add(EventData.uiVisibleChanged(false));
     setState(() {});
   }
 
@@ -98,7 +94,7 @@ class UILayerState extends State<UILayer> {
     if (_isShow == false)
       setState(() {
         _isShow = true;
-        widget.controller._outputStream.add(UIInfo(true));
+        widget.controller._outputStream.add(EventData.uiVisibleChanged(true));
       });
   }
 
@@ -110,33 +106,51 @@ class UILayerState extends State<UILayer> {
   @override
   Widget build(BuildContext context) {
     print('ui build');
-    final List<Widget> buttons = [
+    if (_playerValue?.initialized != true) return Container();
+    final List<Widget> leftButtons = [
       /// 播放 / 暂停按钮
       MyIconButton(
         key: _playButton,
         fromIcon: 0xe6a5,
         toIcon: 0xe6a4,
-        state: widget.playerState.play,
+        state: widget.controller.playing,
         onTap: (state) {
-          widget.playerState.play = !widget.playerState.play;
-          state.state = widget.playerState.play;
+          if (widget.controller.playing)
+            widget.controller.pause();
+          else
+            widget.controller.play();
+          state.state = widget.controller.playing;
           hide();
         },
       ),
       Container(width: 5),
 
       /// 时间
-      Text(
-        _timeString,
-        style: TextStyle(color: Colors.white),
+      PlayingDuration(
+        controller: widget.controller,
       ),
     ];
 
-    if (widget.config.danmaku) {
-      buttons.add(Container(width: 10));
+    final List<Widget> rightButtons = [];
+    if (widget.controller.config.showFullScreenButton) {
+      rightButtons.add(MyIconButton(
+        onTap: (state) {
+          print('全屏');
+          if (widget.onTapFullScreenButton != null)
+            widget.onTapFullScreenButton();
+        },
+        fromIcon: 0xe6e8,
+        toIcon: 0xe6d9,
+        size: 24,
+        state: widget.fullScreen,
+      ));
+    }
+
+    if (widget.controller.config.danmaku) {
+      leftButtons.add(Container(width: 10));
 
       /// 显示 / 隐藏 弹幕内容
-      buttons.add(MyIconButton(
+      leftButtons.add(MyIconButton(
         fromIcon: 0xe697,
         toIcon: 0xe696,
         onTap: (state) {
@@ -144,29 +158,37 @@ class UILayerState extends State<UILayer> {
           hide();
         },
       ));
-      buttons.add(Container(width: 10));
+      leftButtons.add(Container(width: 10));
 
       /// 进入 发弹幕 界面
-      buttons.add(GestureDetector(
+      leftButtons.add(GestureDetector(
         onTap: () async {
           if (_playerValue?.initialized != true) return;
           _inputMode = true;
-          bool isPlaying = widget.playerState.play;
-          widget.playerState.play = false;
+          bool isPlaying = widget.controller.playing;
+          widget.controller.pause();
           setState(() {});
           final danmaku = await Navigator.push<Danmaku>(
-              context,
+              this.context,
               TransparentRoute<Danmaku>(
                   builder: (_) => PostDanmakuLayer(
                         appBarHeight: appBarHeight,
-                        theme: widget.config,
-                        onBeforeSubmit:
-                            widget.playerState.widget.onBeforeSubmit,
+                        theme: widget.controller.config,
+                        currentTime: _playerValue.position,
                       )));
           _inputMode = false;
-          widget.playerState.play = isPlaying;
-          print('弹幕内容 $danmaku');
-          setState(() {});
+          if (danmaku != null) {
+            bool isPost = true;
+            if (widget.controller.onBeforeSubmit != null) {
+              isPost = await widget.controller.onBeforeSubmit(danmaku);
+            }
+            if (isPost) {
+              widget.controller.addDanmaku(danmaku);
+              // print('发表弹幕内容 $danmaku');
+              setState(() {});
+            }
+          }
+          if (isPlaying) widget.controller.play();
         },
         child: Container(
           padding: EdgeInsets.all(8),
@@ -192,8 +214,7 @@ class UILayerState extends State<UILayer> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
               Container(
-                child:
-                    widget.config.loadingWidget ?? CircularProgressIndicator(),
+                child: widget.controller.config.loadingWidget,
                 width: 50,
                 height: 50,
                 margin: EdgeInsets.only(bottom: 10),
@@ -227,19 +248,18 @@ class UILayerState extends State<UILayer> {
 
         /// 触控、滑动等操作
         VideoGesture(
-          playerState: widget.playerState,
           controller: widget.controller,
           uiState: this,
         ),
 
         /// AppBar
         Visibility(
-          visible: widget.playerState.fullScreen && !_inputMode,
+          visible: widget.controller.config.showTitleBar && !_inputMode,
           child: AnimatedPositioned(
             left: 0,
             right: 0,
             top: _titleTop,
-            duration: widget.fadeOutSpeed,
+            duration: widget.controller.config.uiFadeOutSpeed,
             child: Container(
               height: appBarHeight,
               decoration: BoxDecoration(
@@ -247,16 +267,16 @@ class UILayerState extends State<UILayer> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    widget.config.backgroundDeepColor,
-                    widget.config.backgroundDeepColor.withOpacity(0),
+                    widget.controller.config.backgroundDeepColor,
+                    widget.controller.config.backgroundDeepColor.withOpacity(0),
                   ],
                 ),
               ),
               child: AppBar(
                 backgroundColor: Colors.transparent,
                 elevation: 0,
-                title: Text(widget.playerState.name ?? ''),
-                actions: widget.playerState.config.actions,
+                title: Text(widget.controller._ds._title ?? ''),
+                actions: widget.controller.config.actions,
               ),
             ),
           ),
@@ -270,7 +290,7 @@ class UILayerState extends State<UILayer> {
             left: 0,
             right: 0,
             bottom: _controllerBottom,
-            duration: widget.fadeOutSpeed,
+            duration: widget.controller.config.uiFadeOutSpeed,
             child: Container(
               height: controllerHeight,
               padding:
@@ -280,8 +300,8 @@ class UILayerState extends State<UILayer> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    widget.config.backgroundDeepColor.withOpacity(0),
-                    widget.config.backgroundDeepColor,
+                    widget.controller.config.backgroundDeepColor.withOpacity(0),
+                    widget.controller.config.backgroundDeepColor,
                   ],
                 ),
               ),
@@ -290,9 +310,8 @@ class UILayerState extends State<UILayer> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: <Widget>[
                   Visibility(
-                    visible: widget.playerState.mode == DanPlayerMode.Normal,
+                    visible: widget.controller.mode == DanPlayerMode.Normal,
                     child: DanPlayerProgressBar(
-                      theme: widget.config,
                       controller: widget.controller,
                       uiState: this,
                     ),
@@ -300,23 +319,11 @@ class UILayerState extends State<UILayer> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
-                      ...buttons,
+                      ...leftButtons,
                       Expanded(
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.end,
-                          children: <Widget>[
-                            MyIconButton(
-                              onTap: (state) {
-                                print('全屏');
-                                widget.playerState.fullScreen = !state.state;
-                                state.state = !state.state;
-                              },
-                              fromIcon: 0xe6e8,
-                              toIcon: 0xe6d9,
-                              size: 24,
-                              state: widget.playerState.fullScreen,
-                            ),
-                          ],
+                          children: rightButtons,
                         ),
                       ),
                     ],
@@ -329,7 +336,7 @@ class UILayerState extends State<UILayer> {
 
         /// 视频读取错误信息 提示框
         Visibility(
-          visible: widget.playerState.videoValue?.hasError == true,
+          visible: widget.controller.videoPlayerValue?.hasError == true,
           child: Container(
             padding: EdgeInsets.all(10),
             decoration: BoxDecoration(color: Colors.black.withOpacity(0.5)),

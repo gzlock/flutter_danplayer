@@ -1,14 +1,12 @@
 part of '../danplayer.dart';
 
 class DanPlayerProgressBar extends StatefulWidget {
-  final DanPlayerConfig theme;
   final double barHeight;
   final DanPlayerController controller;
   final UILayerState uiState;
 
   const DanPlayerProgressBar({
     Key key,
-    this.theme,
     this.barHeight = 2,
     @required this.controller,
     @required this.uiState,
@@ -28,8 +26,8 @@ class DanPlayerProgressBarState extends State<DanPlayerProgressBar> {
   @override
   void initState() {
     super.initState();
-    widget.controller.addPositionChanged(listener);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    widget.controller.addPlaying(_playing);
+    SchedulerBinding.instance.addPostFrameCallback((_) {
       final RenderBox box = _container.currentContext.findRenderObject();
       _width = box.size.width;
     });
@@ -37,13 +35,13 @@ class DanPlayerProgressBarState extends State<DanPlayerProgressBar> {
 
   @override
   void dispose() {
-    widget.controller.removePositionChanged(listener);
+    widget.controller.removePlaying(_playing);
     super.dispose();
   }
 
   VideoPlayerValue _videoValue;
 
-  void listener(VideoPlayerValue value) {
+  _playing(VideoPlayerValue value) {
     _videoValue = value;
     if (value.duration == null) return;
     final current =
@@ -74,6 +72,8 @@ class DanPlayerProgressBarState extends State<DanPlayerProgressBar> {
     setState(() {});
   }
 
+  bool _beforeDragIsPlaying;
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -81,6 +81,7 @@ class DanPlayerProgressBarState extends State<DanPlayerProgressBar> {
       onTapDown: (TapDownDetails details) {
         print('进度条 onTapDown');
         widget.uiState.show();
+        _playingX = _handlerX = details.localPosition.dx;
       },
       onTapUp: (TapUpDetails details) {
         print('进度条 onTapUp');
@@ -90,16 +91,20 @@ class DanPlayerProgressBarState extends State<DanPlayerProgressBar> {
       onPanStart: (DragStartDetails details) {
         _isDragging = true;
         _handlerDuration = Duration.zero;
-        _seekTo(details.localPosition.dx, seek: false);
+        _beforeDragIsPlaying = widget.controller.videoPlayerValue.isPlaying;
+        widget.controller.pause();
+//        _seekTo(details.localPosition.dx, seek: false);
       },
       onPanUpdate: (DragUpdateDetails details) {
-        final x = _playingX + details.delta.dx;
-        _seekTo(x);
+        _playingX = _handlerX = details.localPosition.dx;
+        setState(() {});
       },
-      onPanEnd: (_) {
+      onPanEnd: (DragEndDetails details) {
+        _seekTo(_playingX);
         _isDragging = false;
         _handlerDuration = Duration(milliseconds: 100);
         widget.uiState.hide();
+        if (_beforeDragIsPlaying) widget.controller.play();
       },
       child: Container(
         key: _container,
@@ -119,14 +124,14 @@ class DanPlayerProgressBarState extends State<DanPlayerProgressBar> {
                 width: _bufferedX,
                 height: widget.barHeight,
               ),
-              color: widget.theme.progressBarBufferAreaColor,
+              color: widget.controller.config.progressBarBufferAreaColor,
             ),
 
             /// 已经播放区域
             Container(
               width: _playingX,
               height: widget.barHeight,
-              color: widget.theme.progressBarColor,
+              color: widget.controller.config.progressBarColor,
             ),
 
             /// 进度条 指示器
@@ -134,7 +139,7 @@ class DanPlayerProgressBarState extends State<DanPlayerProgressBar> {
               duration: _handlerDuration,
               left: _handlerX,
               top: -4,
-              child: widget.theme.progressBarIndicator,
+              child: widget.controller.config.progressBarIndicator,
             ),
           ],
         ),

@@ -1,7 +1,13 @@
+import 'dart:math';
+
 import 'package:danplayer/danplayer.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
+import 'widgets.dart';
 
 final url = 'http://vfx.mtime.cn/Video/2019/03/09/mp4/190309153658147087.mp4';
 
@@ -15,21 +21,65 @@ class _InListView extends State<InListView>
   ScrollController _scrollController = ScrollController();
   TabController _tabController;
   DanPlayerController _controller;
+  final actions = <Widget>[
+    IconButton(
+      icon: Text('🏀'),
+      onPressed: () {
+        Fluttertoast.showToast(
+            msg: 'Clicked the 🏀️ button',
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.CENTER,
+            timeInSecForIos: 1,
+            textColor: Colors.white,
+            fontSize: 16.0);
+      },
+    ),
+    IconButton(
+      icon: Text('⚽️'),
+      onPressed: () {
+        Fluttertoast.showToast(
+            msg: 'Clicked the ⚽️ button',
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.CENTER,
+            timeInSecForIos: 1,
+            textColor: Colors.white,
+            fontSize: 16.0);
+      },
+    )
+  ];
 
   final _tabs = [
-    {'id': 1, 'title': '简介'},
-    {'id': 2, 'title': '评论'},
+    {'id': 1, 'title': '播放器相关'},
+    {'id': 2, 'title': '弹幕相关'},
   ];
 
   @override
   void initState() {
     super.initState();
-    _controller = DanPlayerController();
+    _controller = DanPlayerController(
+        config: DanPlayerConfig(
+      backgroundDeepColor: Colors.blue.withOpacity(0.5),
+      progressBarIndicator: Text('🚚'),
+      loadingWidget: LoadingView(
+        duration: Duration(seconds: 1),
+        child: Text(
+          '😂',
+          style: TextStyle(fontSize: 40),
+        ),
+      ),
+      // danmaku: false,
+      // showFullScreenButton: false,
+      showTitleBar: false,
+      actions: actions,
+    ));
     _scrollController = ScrollController();
     _tabController = TabController(length: _tabs.length, vsync: this);
 
-    _controller.setDataSource(
-        DataSource.network(url, autoPlay: true, title: 'Network Video'));
+    _controller.setDataSource(DataSource.network(
+      url,
+      autoPlay: false,
+      title: 'Network Video',
+    ));
   }
 
   @override
@@ -45,13 +95,17 @@ class _InListView extends State<InListView>
     return Scaffold(
       body: CustomScrollView(
         controller: _scrollController,
+        cacheExtent: 220,
         slivers: [
           DanPlayerPersistentHeader(
+            controller: _controller,
+            scrollController: _scrollController,
             maxExtent: 220,
             pinned: true,
             title: FlatButton.icon(
               onPressed: () {
                 _scrollController.jumpTo(0);
+                _controller.play();
               },
               icon: Icon(
                 Icons.play_arrow,
@@ -59,8 +113,10 @@ class _InListView extends State<InListView>
               textColor: Colors.white,
               label: Text('播放'),
             ),
+            actions: actions,
             child: DanPlayer(
               controller: _controller,
+              fullScreen: false,
             ),
           ),
           SliverPersistentHeader(
@@ -71,6 +127,18 @@ class _InListView extends State<InListView>
             child: _tabsView(), // TabBarView
           )
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        child: Icon(Icons.add),
+        onPressed: () {
+          _controller.addDanmaku(
+            Danmaku(
+                text: '弹幕测试',
+                currentTime: _controller.videoPlayerValue.position +
+                    Duration(milliseconds: 500 + Random().nextInt(2000)),
+                borderColor: Colors.red),
+          );
+        },
       ),
     );
   }
@@ -106,52 +174,27 @@ class _InListView extends State<InListView>
   }
 }
 
-/// Tab Bar
-class SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
-  final TabBar widget;
-  final Color color;
-
-  const SliverTabBarDelegate(this.widget, {this.color})
-      : assert(widget != null);
-
-  @override
-  Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return new Container(
-      child: widget,
-      color: color,
-    );
-  }
-
-  @override
-  bool shouldRebuild(SliverTabBarDelegate oldDelegate) {
-    return false;
-  }
-
-  @override
-  double get maxExtent => widget.preferredSize.height;
-
-  @override
-  double get minExtent => widget.preferredSize.height;
-}
-
 class DanPlayerPersistentHeader extends StatefulWidget {
   final Widget title;
   final DanPlayer child;
+  final DanPlayerController controller;
+  final ScrollController scrollController;
   final double maxExtent;
   final List<Widget> actions;
-  final bool pinned, pauseCollapse;
+  final bool pinned, floating;
   final Color backgroundColor;
 
   const DanPlayerPersistentHeader({
     Key key,
     this.title,
     @required this.maxExtent,
+    @required this.controller,
+    @required this.child,
+    @required this.scrollController,
     this.actions: const [],
-    this.child,
-    this.pauseCollapse: true,
-    this.backgroundColor: Colors.blue,
     this.pinned: true,
+    this.floating: true,
+    this.backgroundColor: Colors.blue,
   })  : assert(maxExtent != null && maxExtent > 0),
         assert(child != null),
         assert(actions != null),
@@ -163,17 +206,34 @@ class DanPlayerPersistentHeader extends StatefulWidget {
 
 class _DanPlayerPersistentHeader extends State<DanPlayerPersistentHeader>
     with SingleTickerProviderStateMixin {
+  VideoHeaderDelegate delegate;
+  bool _playing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    delegate = VideoHeaderDelegate(
+        title: widget.title,
+        child: widget.child,
+        controller: widget.controller,
+        scrollController: widget.scrollController,
+        color: widget.backgroundColor,
+        maxExtent: widget.maxExtent,
+        actions: widget.actions);
+    widget.controller.addPlayStateChanged(_playState);
+  }
+
+  void _playState(bool value) {
+    _playing = value;
+  }
+
   @override
   Widget build(BuildContext context) {
     print('DanPlayerPersistentHeader build');
     return SliverPersistentHeader(
       pinned: widget.pinned,
-      delegate: VideoHeaderDelegate(
-          title: widget.title,
-          child: widget.child,
-          color: widget.backgroundColor,
-          maxExtent: widget.maxExtent,
-          actions: widget.actions),
+      floating: widget.floating,
+      delegate: delegate,
     );
   }
 }
@@ -181,23 +241,42 @@ class _DanPlayerPersistentHeader extends State<DanPlayerPersistentHeader>
 class VideoHeaderDelegate extends SliverPersistentHeaderDelegate {
   final Widget title;
   final DanPlayer child;
+  final DanPlayerController controller;
+  final ScrollController scrollController;
   final double maxExtent;
   final List<Widget> actions;
   final Color color;
   double _minExtent = 0;
   bool _isSetMinExtent = false;
+  bool _isPlaying = false;
 
   VideoHeaderDelegate({
     @required this.child,
     @required this.maxExtent,
+    @required this.controller,
+    @required this.scrollController,
     this.color,
     this.title,
     this.actions = const [],
   })  : assert(child != null),
-        assert(actions != null);
+        assert(actions != null) {
+    controller.addPlayStateChanged(_playState);
+    SchedulerBinding.instance.addPostFrameCallback((_) {});
+  }
+
+  dispose() {
+    controller.removePlayStateChanged(_playState);
+  }
+
+  void _playState(bool value) {
+    _isPlaying = value;
+  }
 
   @override
-  double get minExtent => _minExtent;
+  double get minExtent {
+    if (_isPlaying) return maxExtent;
+    return _minExtent;
+  }
 
   @override
   bool shouldRebuild(SliverPersistentHeaderDelegate oldDelegate) => false;
@@ -214,19 +293,18 @@ class VideoHeaderDelegate extends SliverPersistentHeaderDelegate {
     if (_isSetMinExtent == false) {
       _setMinExtent(context);
     }
-    double opacity =
-        (1.0 - shrinkOffset / (maxExtent - _minExtent)).clamp(0.0, 1.0);
-    Widget title = this.title;
-    if (title != null) {
-      title = Opacity(
-        opacity: 1.0 - opacity,
-        child: title,
-      );
-    }
+    final double opacity =
+        (shrinkOffset / (maxExtent - minExtent)).clamp(0.0, 1.0);
+    final double contentOpacity = _isPlaying ? 1 : 1.0 - opacity;
+    Widget title = Opacity(
+      opacity: _isPlaying ? 0 : opacity,
+      child: this.title,
+    );
     return AppBar(
       title: title,
       centerTitle: true,
       backgroundColor: color,
+      actions: actions,
       // toolbarOpacity: 1.0 - opacity,
       flexibleSpace: Stack(
         overflow: Overflow.clip,
@@ -237,8 +315,8 @@ class VideoHeaderDelegate extends SliverPersistentHeaderDelegate {
             bottom: 0,
             height: maxExtent,
             child: Opacity(
-              opacity: opacity,
-              child: IgnorePointer(ignoring: opacity != 1, child: child),
+              opacity: contentOpacity,
+              child: IgnorePointer(ignoring: contentOpacity != 1, child: child),
             ),
           ),
         ],

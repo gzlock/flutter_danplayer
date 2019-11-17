@@ -57,6 +57,10 @@ class _Monitor extends State<Monitor> with SingleTickerProviderStateMixin {
     if (isPlaying != playing)
       setState(() {
         playing = isPlaying;
+        if (playing)
+          _controller?.repeat();
+        else
+          _controller?.stop();
       });
   }
 
@@ -68,11 +72,9 @@ class _Monitor extends State<Monitor> with SingleTickerProviderStateMixin {
               constraints: BoxConstraints.expand(),
               color: colors.evaluate(AlwaysStoppedAnimation(_controller.value)),
               child: Center(
-                child: Text(
-                  'When danPlayerRenderVideo = false\n'
-                  'Use this widget instead of video\n'
-                  'Playing: $playing',
-                ),
+                child: Text('When danPlayerRenderVideo = false\n'
+                    'Use this widget instead of video\n'
+                    'Playing: $playing'),
               ),
             ));
   }

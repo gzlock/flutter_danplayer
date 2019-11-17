@@ -36,7 +36,6 @@ class MyIconButtonState extends State<MyIconButton> {
   void initState() {
     super.initState();
     _state = widget.state;
-    print('buttons initState $_state');
   }
 
   @override
@@ -53,80 +52,23 @@ class MyIconButtonState extends State<MyIconButton> {
   }
 }
 
-class SelectionButton<T> extends StatefulWidget {
-  final int icon;
-  final double size;
-  final T value;
-  final Color defaultColor, selectedColor;
-  final bool state;
-  final Function(SelectionButtonState<T> state, T value) onTap;
-
-  const SelectionButton({
-    Key key,
-    @required this.onTap,
-    this.icon,
-    this.defaultColor,
-    this.selectedColor,
-    this.size: 32,
-    this.value,
-    this.state = false,
-  })  : assert(onTap != null),
-        super(key: key);
-
-  @override
-  SelectionButtonState createState() => SelectionButtonState<T>();
-}
-
-class SelectionButtonState<T> extends State<SelectionButton> {
-  bool _disable = false;
-  bool _state = false;
-
-  get state => _state;
-
-  set state(bool v) {
-    _state = v;
-    if (mounted) setState(() {});
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _state = widget.state;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final color = _state ? widget.selectedColor : widget.defaultColor;
-    return GestureDetector(
-        onTap: () {
-          if (_disable) return;
-          _state = true;
-          widget.onTap(this, widget.value);
-        },
-        child: Icon(
-          IconData(widget.icon,
-              fontFamily: 'iconfont', fontPackage: 'danplayer'),
-          color: color,
-          size: widget.size,
-        ));
-  }
-}
+typedef OptionValueBuilder = Widget Function(
+    BuildContext context, bool selected, Color color);
 
 class OptionValue<T> {
-  final int icon;
   final T value;
+  final OptionValueBuilder builder;
 
-  const OptionValue(this.icon, this.value);
+  const OptionValue(this.value, this.builder);
 }
 
-class OptionsGroup<T> extends StatelessWidget {
+class OptionsGroup<T> extends StatefulWidget {
   final String hint;
   final Function(T value) onTap;
   final Color defaultColor, selectedColor;
   final List<OptionValue<T>> values;
-  final List<SelectionButton> _buttons = [];
-  final List<GlobalKey<SelectionButtonState<T>>> _buttonStates = [];
   final OptionValue<T> defaultValue;
+  final bool singleSelect;
 
   OptionsGroup(
       {Key key,
@@ -135,45 +77,79 @@ class OptionsGroup<T> extends StatelessWidget {
       this.defaultColor = Colors.white,
       this.selectedColor = Colors.purpleAccent,
       this.values,
+      this.singleSelect = true,
       this.defaultValue})
-      : assert(values != null),
+      : assert(singleSelect != null),
+        assert(values != null),
         assert(values.length > 0),
-        super(key: key) {
-    this.values.forEach((value) {
-      final key = GlobalKey<SelectionButtonState<T>>();
-      _buttonStates.add(key);
-      final button = SelectionButton(
-        key: key,
-        icon: value.icon,
-        defaultColor: defaultColor,
-        selectedColor: selectedColor,
-        value: value.value,
-        state: value == this.defaultValue,
-        onTap: tapButton,
-      );
-      _buttons.add(button);
-    });
+        super(key: key);
+
+  @override
+  _OptionsGroup<T> createState() => _OptionsGroup<T>();
+}
+
+class _OptionsGroup<T> extends State<OptionsGroup> {
+  final List<T> _selected = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _selected.add(widget.defaultValue.value);
   }
 
-  void tapButton(SelectionButtonState<T> state, T value) {
-    print('点击了 $value');
-    _buttonStates
-        .forEach((key) => key.currentState.state = key.currentState == state);
+  void _buttonTap(OptionValue<T> value) {
+    if (widget.singleSelect) {
+      if (_selected.contains(value.value))
+        _selected.clear();
+      else
+        _selected
+          ..clear()
+          ..add(value.value);
+    } else {
+      if (_selected.contains(value.value))
+        _selected.remove(value.value);
+      else
+        _selected.add(value.value);
+    }
+    if (widget.singleSelect && _selected.isEmpty)
+      _selected.add(widget.defaultValue.value);
+
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
+    final buttons = <Widget>[];
+    for (var i = 0; i < widget.values.length; i++) {
+      OptionValue<T> value = widget.values[i];
+      final selected = _selected.contains(value.value);
+      buttons.add(GestureDetector(
+        child: value.builder(context, selected,
+            selected ? widget.selectedColor : widget.defaultColor),
+        onTap: () => _buttonTap(value),
+      ));
+    }
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text(
-          hint,
-          style: TextStyle(color: Colors.white),
+        Container(
+          margin: EdgeInsets.only(right: 10),
+          alignment: Alignment.topCenter,
+          child: Text(
+            widget.hint,
+            style: TextStyle(color: Colors.white),
+          ),
         ),
         Container(
-          width: 10,
-        ),
-        ..._buttons
+          width: 100,
+          child: Wrap(
+            alignment: WrapAlignment.start,
+            direction: Axis.horizontal,
+            children: buttons,
+            spacing: 5,
+            runSpacing: 5,
+          ),
+        )
       ],
     );
   }
