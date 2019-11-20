@@ -2,15 +2,15 @@ part of '../danplayer.dart';
 
 class DanmakuLayer extends StatefulWidget {
   final DanPlayerController controller;
-  final double fontSize;
   final int moveDuration, fadeOutDuration;
+  final GlobalKey<_Monitor> monitor;
 
   const DanmakuLayer({
     Key key,
     @required this.controller,
     @required this.moveDuration,
     @required this.fadeOutDuration,
-    this.fontSize = 14,
+    @required this.monitor,
   }) : super(key: key);
 
   @override
@@ -21,35 +21,20 @@ class DanmakuLayerState extends State<DanmakuLayer> {
   DanmakuPainter _danmakuPainter;
 
   @override
-  void initState() {
-    super.initState();
-    _danmakuPainter = DanmakuPainter(
-        controller: widget.controller,
-        moveDuration: widget.moveDuration,
-        fadeOutDuration: widget.fadeOutDuration);
-    _danmakuPainter.textStyle = TextStyle(
-      fontSize: widget.fontSize,
-      shadows: [
-        Shadow(
-          blurRadius: 2.0,
-          color: Colors.black,
-        ),
-      ],
-    );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      RenderBox box = context.findRenderObject();
-      _danmakuPainter.init(box.size);
-    });
-  }
-
-  @override
   void dispose() {
-    _danmakuPainter.dispose();
+    _danmakuPainter?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    RenderBox box = context.findRenderObject();
+    _danmakuPainter = DanmakuPainter(
+        monitor: widget.monitor,
+        controller: widget.controller,
+        moveDuration: widget.moveDuration,
+        fadeOutDuration: widget.fadeOutDuration,
+        widgetSize: box.size);
     return Container(
       constraints: BoxConstraints.expand(),
       child: CustomPaint(painter: _danmakuPainter),
@@ -117,7 +102,6 @@ class DanmakuMoveDrawer extends DanmakuDrawer {
   void draw(Canvas canvas, Size size, int frameDetail) {
     _draw(canvas);
     x -= speed * frameDetail.toDouble();
-    print('速度 ${speed * frameDetail}');
     if (x < 0) onHide(this);
   }
 }
@@ -138,11 +122,13 @@ class DanmakuFixedDrawer extends DanmakuDrawer {
 
 class DanmakuPainter extends CustomPainter {
   final List<Danmaku> _total = [];
+  final List<Danmaku> _waitToShow = [];
   final int moveDuration, fadeOutDuration;
   final DanPlayerController controller;
+  final GlobalKey<_Monitor> monitor;
+  final Size widgetSize;
 
   TextStyle textStyle;
-  List<Danmaku> _waitToShow = [];
   List<DanmakuMoveDrawer> _movePool = [];
   List<DanmakuFixedDrawer> _fixedPool = [];
 
@@ -151,14 +137,22 @@ class DanmakuPainter extends CustomPainter {
   Map<int, List<DanmakuFixedDrawer>> _bottomShowing = {};
 
   int _lastFrameTime = 0;
+  int lineHeight = 0;
   bool _isPlaying = false;
   VideoPlayerValue _playerValue;
 
-  DanmakuPainter({this.controller, this.moveDuration, this.fadeOutDuration}) {
-    controller.addVideoPlayerInit(_init);
+  DanmakuPainter(
+      {this.controller,
+      this.moveDuration,
+      this.fadeOutDuration,
+      this.widgetSize,
+      this.monitor}) {
     controller.addPlayStateChanged(_playStateChanged);
+    controller.addSeek(_seek);
     controller.addPlaying(_playing);
-    controller.addSeek(_playing);
+    controller.addAddDanmaku(_addDanmaku);
+    controller.addAddDanmakus(_addDanmakus);
+    controller.addConfig(_configChange);
   }
 
   dispose() {
@@ -171,13 +165,16 @@ class DanmakuPainter extends CustomPainter {
 
     _topShowing.clear();
     _fixedPool.clear();
-    controller.removeVideoPlayerInit(_init);
     controller.removePlayStateChanged(_playStateChanged);
     controller.removePlaying(_playing);
     controller.removeAddDanmaku(_addDanmaku);
+    controller.removeAddDanmakus(_addDanmakus);
+    controller.removeConfig(_configChange);
   }
 
-  void _init(_) {}
+  _configChange(DanPlayerConfig config) {
+    init();
+  }
 
   void _playStateChanged(bool isPlaying) {
     _isPlaying = isPlaying;
@@ -188,26 +185,46 @@ class DanmakuPainter extends CustomPainter {
   }
 
   void _seek(VideoPlayerValue value) {
-    _waitToShow = _total;
-    _moveShowing.values.forEach((list) => _movePool.addAll(list));
-    _topShowing.values.forEach((list) => _fixedPool.addAll(list));
-    _bottomShowing.values.forEach((list) => _fixedPool.addAll(list));
+    _waitToShow
+      ..clear()
+      ..addAll(_total);
+    _moveShowing.values.forEach((list) {
+      _movePool.addAll(list);
+      list.clear();
+    });
+    _topShowing.values.forEach((list) {
+      _fixedPool.addAll(list);
+      list.clear();
+    });
+    _bottomShowing.values.forEach((list) {
+      _fixedPool.addAll(list);
+      list.clear();
+    });
   }
 
   _addDanmaku(Danmaku danmaku) {
-    print('danmaku_layer $danmaku');
+    // print('danmaku_layer $danmaku');
     _total.add(danmaku);
     _waitToShow.add(danmaku);
+  }
+
+  _addDanmakus(List<Danmaku> danmakus) {
+    print('add danmakus ${danmakus.length}');
+    _total.addAll(danmakus);
+    _waitToShow.addAll(danmakus);
   }
 
   void _drawerDead(DanmakuDrawer drawer) {
     print('drawer dead ${drawer.danmaku}');
     if (drawer is DanmakuMoveDrawer) {
       _movePool.add(drawer);
-      _moveShowing.remove(drawer);
+      _moveShowing[drawer.y].remove(drawer);
     } else {
       _fixedPool.add(drawer);
-      _topShowing.remove(drawer);
+      if (drawer.danmaku.type == DanmakuType.Top)
+        _topShowing[drawer.y].remove(drawer);
+      else
+        _bottomShowing[drawer.y].remove(drawer);
     }
   }
 
@@ -226,58 +243,146 @@ class DanmakuPainter extends CustomPainter {
         print('different $different');
         if (different < 200) {
           print('显示');
-          _waitToShow.remove(tempDanmaku);
+          _waitToShow.removeAt(i);
           _createDrawer(tempDanmaku, size);
         }
       }
     }
-    int _showingLength = 0;
+    int top = 0, move = 0, bottom = 0;
     _topShowing.values.forEach((List<DanmakuDrawer> list) {
-      _showingLength += list.length;
+      top += list.length;
       list.forEach((drawer) => drawer.draw(canvas, size, frameDetail));
     });
     _bottomShowing.values.forEach((List<DanmakuDrawer> list) {
-      _showingLength += list.length;
+      move += list.length;
       list.forEach((drawer) => drawer.draw(canvas, size, frameDetail));
     });
     _moveShowing.values.forEach((List<DanmakuDrawer> list) {
-      _showingLength += list.length;
+      bottom += list.length;
       list.forEach((drawer) => drawer.draw(canvas, size, frameDetail));
     });
 //    print('paint 显示:$_showingLength 等待：${_waitToShow.length}'
 //        ' 耗时：$frameDetail 尺寸：$size');
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      monitor?.currentState?._updateDanmaku(
+        total: _total.length,
+        top: top,
+        move: move,
+        bottom: bottom,
+        fixedPool: _fixedPool.length,
+        movePool: _movePool.length,
+        frameTime: frameDetail,
+      );
+    });
     _lastFrameTime = DateTime.now().millisecondsSinceEpoch;
   }
 
-  DanmakuDrawer _createDrawer(Danmaku danmaku, Size size) {
+  int lastMoveLine = 0, lastTopLine = 0, lastBottomLine = 0;
+
+  _createDrawer(Danmaku danmaku, Size size) {
+    if (controller.config.danmakuOverlapType != DanmakuOverlapType.Normal &&
+        controller.config.danmakuOverlapType != DanmakuOverlapType.Unlimited &&
+        danmaku.type == DanmakuType.Bottom) {
+      /// 有显示区域限制，不显示: 固定在下方位置的弹幕
+      return;
+    }
+
+    int y = 0;
+
     if (danmaku.type == DanmakuType.Normal) {
       DanmakuMoveDrawer drawer;
-      if (_movePool.isEmpty)
-        drawer = DanmakuMoveDrawer(_drawerDead, danmaku, textStyle);
-      else
-        drawer = _movePool.removeAt(0)..reset(danmaku, textStyle);
-      drawer.speed = (size.width + drawer.painter.width) / moveDuration;
-      drawer.x = size.width;
-      _moveShowing[0].add(drawer);
-      //todo 计算重叠位置
-      return drawer;
+      final entries = _moveShowing.entries;
+      List line;
+      entries.every((kv) {
+        if (kv.value.length == 0) {
+          line = kv.value;
+          y = kv.key;
+        } else {
+          kv.value.every((drawer) {
+            if (drawer.y + drawer.painter.size.width > size.width) return false;
+            line = kv.value;
+            y = kv.key;
+            return false;
+          });
+        }
+        return line == null;
+      });
+
+      if (line == null &&
+          controller.config.danmakuOverlapType ==
+              DanmakuOverlapType.Unlimited) {
+        /// 找不到可以填入的空行
+        drawer = _createMoveDrawer(danmaku);
+        drawer.speed = (size.width + drawer.painter.width) / moveDuration;
+        drawer.x = size.width;
+        drawer.y = y.toDouble();
+        line.add(drawer);
+      } else if (line != null) {
+        /// 找到空行
+        lastMoveLine = y;
+        drawer = _createMoveDrawer(danmaku);
+        drawer.speed = (size.width + drawer.painter.width) / moveDuration;
+        drawer.x = size.width;
+        drawer.y = y.toDouble();
+        line.add(drawer);
+      }
     } else {
       DanmakuFixedDrawer drawer;
-      if (_fixedPool.isEmpty)
-        drawer = DanmakuFixedDrawer(_drawerDead, danmaku, textStyle);
-      else
-        drawer = _fixedPool.removeAt(0)..reset(danmaku, textStyle);
-      drawer.showTime = fadeOutDuration;
-      drawer.x = (size.width - drawer.painter.size.width) / 2;
-      _topShowing[0].add(drawer);
-      if (danmaku.type == DanmakuType.Top) {
-        drawer.y = 0;
-      } else {
-        drawer.y = size.height;
+
+      List line;
+      Map<int, List<DanmakuFixedDrawer>> target =
+          danmaku.type == DanmakuType.Top ? _topShowing : _bottomShowing;
+
+      target.entries.every((kv) {
+        if (kv.value.length == 0) {
+          line = kv.value;
+          y = kv.key;
+        }
+        return line == null;
+      });
+
+      if (line == null &&
+          controller.config.danmakuOverlapType ==
+              DanmakuOverlapType.Unlimited) {
+        /// 找不到空行
+        drawer = _createFixedDrawer(danmaku);
+        if (danmaku.type == DanmakuType.Top) {
+          lastTopLine += lineHeight;
+          if (lastTopLine > size.height) lastTopLine = 0;
+          drawer.y = lastTopLine.toDouble();
+        } else {
+          lastBottomLine += lineHeight;
+          if (lastBottomLine > size.height) lastBottomLine = 0;
+          drawer.y = lastBottomLine + size.height - lineHeight;
+        }
+      } else if (line != null) {
+        /// 找到空行
+        drawer = _createFixedDrawer(danmaku);
+        drawer.showTime = fadeOutDuration;
+        drawer.x = (size.width - drawer.painter.size.width) / 2;
+        drawer.y = y.toDouble();
+        if (danmaku.type == DanmakuType.Bottom) {
+          drawer.y += size.height - lineHeight;
+          lastBottomLine = y;
+        } else
+          lastTopLine = y;
+        line.add(drawer);
       }
-      //todo 计算重叠位置
-      return drawer;
     }
+  }
+
+  DanmakuFixedDrawer _createFixedDrawer(Danmaku danmaku) {
+    if (_fixedPool.isEmpty)
+      return DanmakuFixedDrawer(_drawerDead, danmaku, textStyle);
+    else
+      return _fixedPool.removeAt(0)..reset(danmaku, textStyle);
+  }
+
+  DanmakuMoveDrawer _createMoveDrawer(Danmaku danmaku) {
+    if (_fixedPool.isEmpty)
+      return DanmakuMoveDrawer(_drawerDead, danmaku, textStyle);
+    else
+      return _movePool.removeAt(0)..reset(danmaku, textStyle);
   }
 
   @override
@@ -285,22 +390,32 @@ class DanmakuPainter extends CustomPainter {
     return false;
   }
 
-  void init(Size size) {
+  void init() {
+    textStyle = TextStyle(
+      fontSize: controller.config.fontSize,
+      shadows: [
+        Shadow(
+          blurRadius: 2.0,
+          color: Colors.black,
+        ),
+      ],
+    );
     final test = TextPainter(
         textDirection: TextDirection.ltr,
         text: TextSpan(text: 'M', style: textStyle))
       ..layout();
-    final lineHeight = test.size.height.toInt() + 2;
+    lineHeight = test.size.height.round() + 4;
     _moveShowing.clear();
     _topShowing.clear();
+    _bottomShowing.clear();
     var height = 0;
-    print('lineHeight $size ${test.size} $lineHeight');
     while (true) {
       _moveShowing[height] = [];
       _topShowing[height] = [];
       _bottomShowing[height] = [];
       height += lineHeight;
-      if ((height + lineHeight) > size.height) break;
+      if ((height + lineHeight) > widgetSize.height) break;
     }
+    print('lineHeight $widgetSize $lineHeight ');
   }
 }

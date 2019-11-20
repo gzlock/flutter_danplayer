@@ -9,7 +9,9 @@ typedef OnDataSourceChanged = Function(DataSource ds);
 typedef OnVolumeChanged = Function(double volume);
 typedef OnUIChanged = Function(bool show);
 typedef OnAddDanmaku = Function(Danmaku danmaku);
+typedef OnAddDanmakus = Function(List<Danmaku> danmakus);
 typedef OnVideoInit = Function(VideoPlayerValue value);
+typedef OnConfigChanged = Function(DanPlayerConfig config);
 
 enum EventType {
   playing,
@@ -19,6 +21,7 @@ enum EventType {
   uiVisibleChanged,
   playStateChanged,
   addDanmaku,
+  addDanmakus,
   videoPlayerInit,
 }
 
@@ -56,6 +59,9 @@ class EventData<T> {
 
   factory EventData.playerInit(T value) =>
       EventData<T>(EventType.videoPlayerInit, value);
+
+  factory EventData.addDanmakus(T value) =>
+      EventData<T>(EventType.addDanmakus, value);
 }
 
 /// Entity classe for data sources.
@@ -164,7 +170,9 @@ class DanPlayerController {
   final List<OnDataSourceChanged> _dataSourceEvents = [];
   final List<OnVolumeChanged> _volumeEvents = [];
   final List<OnAddDanmaku> _addDanmakuEvents = [];
+  final List<OnAddDanmakus> _addDanmakusEvents = [];
   final List<OnVideoInit> _initEvents = [];
+  final List<OnConfigChanged> _configChangedEvents = [];
 
   DanPlayerController({
     this.onBeforeSubmit,
@@ -203,6 +211,11 @@ class DanPlayerController {
   bool get playing => _isPlaying;
 
   DanPlayerConfig get config => _config;
+
+  set config(DanPlayerConfig config) {
+    _config = config;
+    _configChangedEvents.forEach((fun) => fun(config));
+  }
 
   /// cache
   VideoPlayerValue videoPlayerValue;
@@ -243,6 +256,9 @@ class DanPlayerController {
           break;
         case EventType.addDanmaku:
           _addDanmakuEvents.forEach((fun) => fun(data.value));
+          break;
+        case EventType.addDanmakus:
+          _addDanmakusEvents.forEach((fun) => fun(data.value));
           break;
         case EventType.playStateChanged:
           _playStateEvents.forEach((fun) => fun(data.value));
@@ -334,6 +350,16 @@ class DanPlayerController {
     _playingEvents.remove(event);
   }
 
+  addConfig(OnConfigChanged event) {
+    if (_configChangedEvents.contains(event) == false)
+      _configChangedEvents.add(event);
+    event(_config);
+  }
+
+  removeConfig(OnConfigChanged event) {
+    _configChangedEvents.remove(event);
+  }
+
   addSeek(OnSeek event) {
     if (_seekEvents.contains(event) == false) _seekEvents.add(event);
     if (videoPlayerValue != null) event(videoPlayerValue);
@@ -388,6 +414,15 @@ class DanPlayerController {
     _addDanmakuEvents.remove(event);
   }
 
+  addAddDanmakus(OnAddDanmakus event) {
+    if (_addDanmakusEvents.contains(event) == false)
+      _addDanmakusEvents.add(event);
+  }
+
+  removeAddDanmakus(OnAddDanmakus event) {
+    _addDanmakusEvents.remove(event);
+  }
+
   /// Normal methods
   play() {
     _videoPlayerController?.play();
@@ -411,8 +446,8 @@ class DanPlayerController {
 
   addDanmakus(Iterable<Danmaku> danmakus) {
     SchedulerBinding.instance.addPostFrameCallback((_) {
-      // print('controller addDanmakus $danmakus');
-      danmakus.forEach((d) => _outputStream.add(EventData.addDanmaku(d)));
+      // print('controller addDanmakus ${danmakus.length}');
+      _outputStream.add(EventData.addDanmakus(danmakus));
     });
   }
 

@@ -62,7 +62,7 @@ class DanPlayerProgressBarState extends State<DanPlayerProgressBar> {
   }
 
   void _seekTo(double x, {bool seek: true}) {
-    if (x < 0 || x > _width) return;
+    x = x.clamp(0, _width);
     _playingX = x;
     _handlerX = x;
     if (seek && _videoValue != null) {
@@ -96,8 +96,7 @@ class DanPlayerProgressBarState extends State<DanPlayerProgressBar> {
 //        _seekTo(details.localPosition.dx, seek: false);
       },
       onPanUpdate: (DragUpdateDetails details) {
-        _playingX = _handlerX = details.localPosition.dx;
-        setState(() {});
+        _seekTo(details.localPosition.dx, seek: false);
       },
       onPanEnd: (DragEndDetails details) {
         _seekTo(_playingX);

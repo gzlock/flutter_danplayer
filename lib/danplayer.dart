@@ -67,6 +67,14 @@ enum DanPlayerMode {
   Live,
 }
 
+enum DanmakuOverlapType {
+  Normal, // 防重叠
+  Unlimited, // 不限制，海量弹幕模式
+  _25Percent, // 只在25%的区域高度显示弹幕
+  _50Percent, // 只在50%的区域高度显示弹幕
+  _75Percent, // 只在75%的区域高度显示弹幕
+}
+
 class DanPlayerConfig {
   final Color backgroundColor;
   final Color backgroundLightColor;
@@ -90,9 +98,12 @@ class DanPlayerConfig {
 
   final double fontSize;
 
+  final DanmakuOverlapType danmakuOverlapType;
+
   DanPlayerConfig({
     Widget progressBarIndicator,
     Widget loadingWidget,
+    this.danmakuOverlapType: DanmakuOverlapType.Normal,
     this.backgroundColor: const Color.fromRGBO(0, 0, 0, 0.3),
     this.backgroundLightColor: Colors.transparent,
     this.backgroundDeepColor: const Color.fromRGBO(0, 0, 0, 0.5),
@@ -107,8 +118,7 @@ class DanPlayerConfig {
     this.fontSize: 18,
     this.showTitleBar: true,
     this.showFullScreenButton: true,
-  })
-      : assert(backgroundDeepColor != null),
+  })  : assert(backgroundDeepColor != null),
         assert(progressBarColor != null),
         assert(progressBarBufferAreaColor != null),
         assert(progressBarIndicator != null),
@@ -117,24 +127,26 @@ class DanPlayerConfig {
         loadingWidget = loadingWidget ?? defaultLoadingIndicator;
 
   copyWith({
-    progressBarIndicator,
-    loadingWidget,
-    backgroundColor,
-    backgroundLightColor,
-    backgroundDeepColor,
-    progressBarColor,
-    progressBarBufferAreaColor,
-    actions,
-    danmaku,
-    uiFadeOutDuration,
-    uiFadeOutSpeed,
-    danmakuMoveDuration,
-    danmakuFadeOutDuration,
-    fontSize,
-    showFullScreenButton,
-    showTitleBar,
+    Widget progressBarIndicator,
+    Widget loadingWidget,
+    Color backgroundColor,
+    DanmakuOverlapType danmakuOverlapType,
+    Color backgroundLightColor,
+    Color backgroundDeepColor,
+    Color progressBarColor,
+    Color progressBarBufferAreaColor,
+    List<Widget> actions,
+    bool danmaku,
+    Duration uiFadeOutDuration,
+    Duration uiFadeOutSpeed,
+    Duration danmakuMoveDuration,
+    Duration danmakuFadeOutDuration,
+    int fontSize,
+    bool showFullScreenButton,
+    bool showTitleBar,
   }) {
     return DanPlayerConfig(
+      danmakuOverlapType: danmakuOverlapType ?? this.danmakuOverlapType,
       progressBarIndicator: progressBarIndicator ?? this.progressBarIndicator,
       loadingWidget: loadingWidget ?? this.loadingWidget,
       backgroundColor: backgroundColor ?? this.backgroundColor,
@@ -142,14 +154,14 @@ class DanPlayerConfig {
       backgroundDeepColor: backgroundDeepColor ?? this.backgroundDeepColor,
       progressBarColor: progressBarColor ?? this.progressBarColor,
       progressBarBufferAreaColor:
-      progressBarBufferAreaColor ?? this.progressBarBufferAreaColor,
+          progressBarBufferAreaColor ?? this.progressBarBufferAreaColor,
       actions: actions ?? this.actions,
       danmaku: danmaku ?? this.danmaku,
       uiFadeOutDuration: uiFadeOutDuration ?? this.uiFadeOutDuration,
       uiFadeOutSpeed: uiFadeOutSpeed ?? this.uiFadeOutSpeed,
       danmakuMoveDuration: danmakuMoveDuration ?? this.danmakuMoveDuration,
       danmakuFadeOutDuration:
-      danmakuFadeOutDuration ?? this.danmakuFadeOutDuration,
+          danmakuFadeOutDuration ?? this.danmakuFadeOutDuration,
       fontSize: fontSize ?? this.fontSize,
       showTitleBar: showTitleBar ?? this.showTitleBar,
       showFullScreenButton: showFullScreenButton ?? this.showFullScreenButton,
@@ -174,6 +186,7 @@ class DanPlayer extends StatefulWidget {
 class DanPlayerState extends State<DanPlayer> {
   final GlobalKey<DanmakuLayerState> _danmakuLayer = GlobalKey();
   final GlobalKey _container = GlobalKey();
+  final GlobalKey<_Monitor> _monitorKey = GlobalKey();
   String name;
   bool _displayDanmkau;
   double _videoAspectRatio = 1;
@@ -186,6 +199,7 @@ class DanPlayerState extends State<DanPlayer> {
     super.initState();
     widget.controller._initEvents.add(_initVideoSize);
     widget.controller._playingEvents.add(_playingListener);
+    widget.controller._configChangedEvents.add(_configChanged);
     SchedulerBinding.instance.addPostFrameCallback((_) {
       setState(() {});
     });
@@ -199,7 +213,12 @@ class DanPlayerState extends State<DanPlayer> {
     // print('danplayer dispose');
     widget.controller._initEvents.remove(_initVideoSize);
     widget.controller._playingEvents.remove(_initVideoSize);
+    widget.controller._configChangedEvents.remove(_configChanged);
     super.dispose();
+  }
+
+  void _configChanged(_) {
+    if (mounted) setState(() {});
   }
 
   void _initVideoSize(VideoPlayerValue value) {
@@ -228,13 +247,12 @@ class DanPlayerState extends State<DanPlayer> {
   void _createFullScreen() async {
     Navigator.push(
         context,
-        FullScreenRoute((context) =>
-            DanPlayer(
+        FullScreenRoute((context) => DanPlayer(
               controller: widget.controller.copyWith(
                   config: widget.controller.config.copyWith(
-                    showTitleBar: true,
-                    showFullScreenButton: true,
-                  )),
+                showTitleBar: true,
+                showFullScreenButton: true,
+              )),
             )));
   }
 
@@ -254,7 +272,7 @@ class DanPlayerState extends State<DanPlayer> {
       /// 恢复系统栏
       _showStatusBar();
 
-          () async {
+      () async {
         /// 恢复竖屏
         await SystemChrome.setPreferredOrientations([
           DeviceOrientation.portraitUp,
@@ -298,18 +316,18 @@ class DanPlayerState extends State<DanPlayer> {
                 aspectRatio: _videoAspectRatio,
                 child: danPlayerRenderVideo
                     ? VideoPlayer(widget.controller._videoPlayerController)
-                    : Monitor(controller: widget.controller),
+                    : Monitor(key: _monitorKey, controller: widget.controller),
               ),
             ),
           ),
           DanmakuLayer(
             key: _danmakuLayer,
             controller: widget.controller,
-            fontSize: widget.controller.config.fontSize,
             moveDuration:
-            widget.controller.config.danmakuMoveDuration.inMilliseconds,
+                widget.controller.config.danmakuMoveDuration.inMilliseconds,
             fadeOutDuration:
-            widget.controller.config.danmakuFadeOutDuration.inMilliseconds,
+                widget.controller.config.danmakuFadeOutDuration.inMilliseconds,
+            monitor:_monitorKey,
           ),
           UILayer(
             controller: widget.controller,

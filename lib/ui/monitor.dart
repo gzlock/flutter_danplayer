@@ -38,17 +38,43 @@ class _Monitor extends State<Monitor> with SingleTickerProviderStateMixin {
   );
   AnimationController _controller;
   bool playing = false;
+  int _totalDanmaku = 0,
+      _moveShowing = 0,
+      _topShowing = 0,
+      _bottomShowing = 0,
+      _movePool = 0,
+      _fixedPool = 0,
+      _frameTime = 0;
+
+  void _updateDanmaku({
+    @required int total,
+    @required int move,
+    @required int top,
+    @required int bottom,
+    @required int movePool,
+    @required int fixedPool,
+    @required int frameTime,
+  }) {
+    _totalDanmaku = total;
+    _moveShowing = move;
+    _topShowing = top;
+    _bottomShowing = top;
+    _movePool = movePool;
+    _fixedPool = fixedPool;
+    _frameTime = frameTime;
+    setState(() {});
+  }
 
   @override
   void initState() {
     super.initState();
     widget.controller.addPlayStateChanged(_playState);
-    _controller = AnimationController(duration: duration, vsync: this)
-      ..repeat();
+    _controller = AnimationController(duration: duration, vsync: this);
   }
 
   @override
   void dispose() {
+    widget.controller.removePlayStateChanged(_playState);
     _controller.dispose();
     super.dispose();
   }
@@ -74,7 +100,16 @@ class _Monitor extends State<Monitor> with SingleTickerProviderStateMixin {
               child: Center(
                 child: Text('When danPlayerRenderVideo = false\n'
                     'Use this widget instead of video\n'
-                    'Playing: $playing'),
+                    'Playing: $playing\n'
+                    'Frame time: $_frameTime\n'
+                    'Total Danmakus: $_totalDanmaku\n'
+                    'Showing Danmakus\n'
+                    '    Top: $_topShowing\n'
+                    '    Move: $_moveShowing\n'
+                    '    Bottom: $_bottomShowing\n'
+                    'Pool\n'
+                    '    Move: $_movePool\n'
+                    '    Fixed: $_fixedPool'),
               ),
             ));
   }

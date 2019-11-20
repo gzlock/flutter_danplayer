@@ -102,6 +102,7 @@ class _InListView extends State<InListView>
             scrollController: _scrollController,
             maxExtent: 220,
             pinned: true,
+            floating: true,
             title: FlatButton.icon(
               onPressed: () {
                 _scrollController.jumpTo(0);
@@ -121,11 +122,22 @@ class _InListView extends State<InListView>
           ),
           SliverPersistentHeader(
             pinned: true,
-            delegate: SliverTabBarDelegate(_buildTabs()),
+            delegate: SliverTabBarDelegate(_buildTabs(),
+                color: Theme.of(context).scaffoldBackgroundColor),
           ),
           SliverFillRemaining(
-            child: _tabsView(), // TabBarView
-          )
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                VideoControlWidget(
+                  controller: _controller,
+                ),
+                DanmakuControlWidget(
+                  controller: _controller,
+                )
+              ],
+            ),
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -158,19 +170,6 @@ class _InListView extends State<InListView>
             text: '${item['title']}',
           );
         }).toList());
-  }
-
-  Widget _tabsView() {
-    return TabBarView(
-      controller: _tabController,
-      children: _tabs
-          .map((tab) => Container(
-                child: Center(
-                  child: Text(tab['title']),
-                ),
-              ))
-          .toList(),
-    );
   }
 }
 

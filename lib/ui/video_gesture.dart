@@ -53,18 +53,20 @@ class VideoGestureState extends State<VideoGesture> {
         /// 音量大小提示
         Visibility(
           visible: _changingVolume,
-          child: Positioned(
-            left: _width - 20,
-            top: _volumeY,
+          child: Center(
             child: Container(
-                padding: EdgeInsets.all(5),
-                decoration: BoxDecoration(
-                  color: widget.controller.config.backgroundColor,
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
+              constraints: BoxConstraints.expand(width: 80, height: 30),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: widget.controller.config.backgroundColor,
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    margin: EdgeInsets.only(left: 10, right: 6),
+                    child: Icon(
                       IconData(
                         widget.controller.volume > 0 ? 0xe63d : 0xe63e,
                         fontFamily: 'iconfont',
@@ -72,13 +74,16 @@ class VideoGestureState extends State<VideoGesture> {
                       ),
                       color: Colors.white,
                     ),
-                    Container(width: 10),
-                    Text(
+                  ),
+                  Expanded(
+                    child: Text(
                       (widget.controller.volume * 100).toStringAsFixed(0),
                       style: TextStyle(color: Colors.white),
                     ),
-                  ],
-                )),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
 
@@ -112,7 +117,7 @@ class VideoGestureState extends State<VideoGesture> {
         GestureDetector(
           onTap: () {
             if (_playerValue?.initialized != true) return;
-            print('onTap');
+            // print('onTap');
             if (widget.uiState.isShow) {
               if (widget.controller.playing)
                 widget.controller.pause();
@@ -125,7 +130,7 @@ class VideoGestureState extends State<VideoGesture> {
             }
           },
           onVerticalDragStart: (DragStartDetails details) {
-            print('音量 onPanStart');
+            // print('音量 onPanStart');
             _changingVolume = details.localPosition.dx >= _width;
             _volumeY = details.localPosition.dy;
           },
@@ -133,9 +138,9 @@ class VideoGestureState extends State<VideoGesture> {
             if (!_changingVolume) return;
             // print('音量 onPanUpdate');
             final dy = details.localPosition.dy - _volumeY;
-            if (dy.abs() > 20) {
-              final value = dy > 0 ? 1 : -1;
-              widget.controller.volume += value * 0.1;
+            if (dy.abs() > 1) {
+              final value = dy > 0 ? -1 : 1;
+              widget.controller.volume += value * 0.01;
               _volumeY = details.localPosition.dy;
             }
             setState(() {});
