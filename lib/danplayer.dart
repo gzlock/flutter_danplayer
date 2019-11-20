@@ -185,23 +185,21 @@ class DanPlayer extends StatefulWidget {
 
 class DanPlayerState extends State<DanPlayer> {
   final GlobalKey<DanmakuLayerState> _danmakuLayer = GlobalKey();
-  final GlobalKey _container = GlobalKey();
   final GlobalKey<_Monitor> _monitorKey = GlobalKey();
   String name;
-  bool _displayDanmkau;
   double _videoAspectRatio = 1;
-  VideoPlayerValue _videoValue;
-
-  VideoPlayerValue get videoValue => _videoValue;
+  Size _size;
 
   @override
   void initState() {
     super.initState();
-    widget.controller._initEvents.add(_initVideoSize);
-    widget.controller._playingEvents.add(_playingListener);
+    widget.controller._initEvents.add(_init);
     widget.controller._configChangedEvents.add(_configChanged);
+
     SchedulerBinding.instance.addPostFrameCallback((_) {
-      setState(() {});
+      final RenderBox box = context.findRenderObject();
+      _size = box.size;
+      _configChanged(null);
     });
     if (widget.fullScreen) {
       _fullScreenAction(true);
@@ -211,17 +209,23 @@ class DanPlayerState extends State<DanPlayer> {
   @override
   void dispose() {
     // print('danplayer dispose');
-    widget.controller._initEvents.remove(_initVideoSize);
-    widget.controller._playingEvents.remove(_initVideoSize);
+    widget.controller._initEvents.remove(_init);
     widget.controller._configChangedEvents.remove(_configChanged);
     super.dispose();
   }
 
   void _configChanged(_) {
+    print('_configChanged');
     if (mounted) setState(() {});
   }
 
-  void _initVideoSize(VideoPlayerValue value) {
+  @override
+  void didUpdateWidget(DanPlayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    print('danplayer didUpdateWidget');
+  }
+
+  void _init(VideoPlayerValue value) {
     _videoAspectRatio = value.aspectRatio;
     if (_videoAspectRatio > 1) {
       // 16:9
@@ -230,19 +234,8 @@ class DanPlayerState extends State<DanPlayer> {
       // 9:16
     }
     print('_initVideoSize $_videoAspectRatio');
-    setState(() {});
+    _configChanged(null);
   }
-
-  void _playingListener(VideoPlayerValue value) {
-    _videoValue = value;
-  }
-
-  set displayDanmkau(bool value) {
-    _displayDanmkau = value;
-    setState(() {});
-  }
-
-  get displayDanmkau => _displayDanmkau;
 
   void _createFullScreen() async {
     Navigator.push(
@@ -300,47 +293,55 @@ class DanPlayerState extends State<DanPlayer> {
 
   @override
   Widget build(BuildContext context) {
+    print('danplayer build');
+    final children = <Widget>[];
+    if (_size != null) {
+      children.addAll([
+        Container(color: Colors.black),
+
+        /// 视频画面
+        Visibility(
+          visible: widget.controller.initialized,
+          child: Center(
+            child: AspectRatio(
+              aspectRatio: _videoAspectRatio,
+              child: danPlayerRenderVideo
+                  ? VideoPlayer(widget.controller._videoPlayerController)
+                  : Monitor(key: _monitorKey, controller: widget.controller),
+            ),
+          ),
+        ),
+        DanmakuLayer(
+          key: _danmakuLayer,
+          controller: widget.controller,
+          moveDuration:
+              widget.controller.config.danmakuMoveDuration.inMilliseconds,
+          fadeOutDuration:
+              widget.controller.config.danmakuFadeOutDuration.inMilliseconds,
+          monitor: _monitorKey,
+          size: _size,
+        ),
+        UILayer(
+          controller: widget.controller,
+          fullScreen: widget.fullScreen,
+          uiSize: UIData(
+              appBarHeight:
+                  kToolbarHeight + MediaQuery.of(context).padding.top),
+          onTapFullScreenButton: () {
+            if (widget.fullScreen) {
+              Navigator.pop(context);
+            } else {
+              _createFullScreen();
+            }
+          },
+        ),
+      ]);
+    }
     return Container(
-      key: _container,
       constraints: BoxConstraints.expand(),
       child: Stack(
         overflow: Overflow.clip,
-        children: <Widget>[
-          Container(color: Colors.black),
-
-          /// 视频画面
-          Visibility(
-            visible: widget.controller.initialized,
-            child: Center(
-              child: AspectRatio(
-                aspectRatio: _videoAspectRatio,
-                child: danPlayerRenderVideo
-                    ? VideoPlayer(widget.controller._videoPlayerController)
-                    : Monitor(key: _monitorKey, controller: widget.controller),
-              ),
-            ),
-          ),
-          DanmakuLayer(
-            key: _danmakuLayer,
-            controller: widget.controller,
-            moveDuration:
-                widget.controller.config.danmakuMoveDuration.inMilliseconds,
-            fadeOutDuration:
-                widget.controller.config.danmakuFadeOutDuration.inMilliseconds,
-            monitor:_monitorKey,
-          ),
-          UILayer(
-            controller: widget.controller,
-            fullScreen: widget.fullScreen,
-            onTapFullScreenButton: () {
-              if (widget.fullScreen) {
-                Navigator.pop(context);
-              } else {
-                _createFullScreen();
-              }
-            },
-          ),
-        ],
+        children: children,
       ),
     );
   }

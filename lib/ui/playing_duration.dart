@@ -37,7 +37,7 @@ class _PlayDuration extends State<PlayingDuration> {
     text = durationToString(value.position) +
         ' / ' +
         durationToString(value.duration);
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   @override

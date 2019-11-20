@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:danplayer/danplayer.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -9,7 +7,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 
 import 'widgets.dart';
 
-final url = 'http://vfx.mtime.cn/Video/2019/03/09/mp4/190309153658147087.mp4';
+final url = 'https://vfx.mtime.cn/Video/2019/07/25/mp4/190725150727428271.mp4';
 
 class InListView extends StatefulWidget {
   @override
@@ -130,27 +128,17 @@ class _InListView extends State<InListView>
               controller: _tabController,
               children: [
                 VideoControlWidget(
+                  url:url,
                   controller: _controller,
                 ),
                 DanmakuControlWidget(
+                  url:url,
                   controller: _controller,
                 )
               ],
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        child: Icon(Icons.add),
-        onPressed: () {
-          _controller.addDanmaku(
-            Danmaku(
-                text: '弹幕测试',
-                currentTime: _controller.videoPlayerValue.position +
-                    Duration(milliseconds: 500 + Random().nextInt(2000)),
-                borderColor: Colors.red),
-          );
-        },
       ),
     );
   }

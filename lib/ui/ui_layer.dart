@@ -1,13 +1,25 @@
 part of '../danplayer.dart';
 
+class UIData {
+  final double appBarHeight;
+  final double controllerHeight;
+
+  UIData({
+    @required this.appBarHeight,
+    this.controllerHeight: kToolbarHeight + 30,
+  });
+}
+
 class UILayer extends StatefulWidget {
   final DanPlayerController controller;
   final bool fullScreen;
   final VoidCallback onTapFullScreenButton;
+  final UIData uiSize;
 
   const UILayer({
     Key key,
     @required this.controller,
+    @required this.uiSize,
     this.fullScreen,
     this.onTapFullScreenButton,
   }) : super(key: key);
@@ -18,7 +30,6 @@ class UILayer extends StatefulWidget {
 
 class UILayerState extends State<UILayer> {
   GlobalKey<MyIconButtonState> _playButton = GlobalKey();
-  double appBarHeight = 0, controllerHeight = kToolbarHeight + 30;
   double _titleTop = 0, _controllerBottom = 0;
   Timer _fadeOutTimer;
   bool _isShow = true, _isLoading = true, _inputMode = false;
@@ -33,10 +44,6 @@ class UILayerState extends State<UILayer> {
     widget.controller.addVideoPlayerInit(_init);
     widget.controller.addPlaying(_playing);
     widget.controller.addPlayStateChanged(_playState);
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      appBarHeight = kToolbarHeight + MediaQuery.of(context).padding.top;
-      setState(() {});
-    });
   }
 
   @override
@@ -82,8 +89,8 @@ class UILayerState extends State<UILayer> {
 
   void _hide() {
     _isShow = false;
-    _titleTop = -appBarHeight;
-    _controllerBottom = -controllerHeight;
+    _titleTop = -widget.uiSize.appBarHeight;
+    _controllerBottom = -widget.uiSize.controllerHeight;
     widget.controller._outputStream.add(EventData.uiVisibleChanged(false));
     setState(() {});
   }
@@ -172,7 +179,7 @@ class UILayerState extends State<UILayer> {
               this.context,
               TransparentRoute<Danmaku>(
                   builder: (_) => PostDanmakuLayer(
-                        appBarHeight: appBarHeight,
+                        appBarHeight: widget.uiSize.appBarHeight,
                         theme: widget.controller.config,
                         currentTime: _playerValue.position,
                       )));
@@ -261,7 +268,7 @@ class UILayerState extends State<UILayer> {
             top: _titleTop,
             duration: widget.controller.config.uiFadeOutSpeed,
             child: Container(
-              height: appBarHeight,
+              height: widget.uiSize.appBarHeight,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
@@ -292,7 +299,7 @@ class UILayerState extends State<UILayer> {
             bottom: _controllerBottom,
             duration: widget.controller.config.uiFadeOutSpeed,
             child: Container(
-              height: controllerHeight,
+              height: widget.uiSize.controllerHeight,
               padding:
                   EdgeInsets.only(top: 18, left: 10, right: 10, bottom: 10),
               decoration: BoxDecoration(

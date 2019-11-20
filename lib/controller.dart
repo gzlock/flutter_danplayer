@@ -174,6 +174,8 @@ class DanPlayerController {
   final List<OnVideoInit> _initEvents = [];
   final List<OnConfigChanged> _configChangedEvents = [];
 
+  final List<Danmaku> _danmakus = [];
+
   DanPlayerController({
     this.onBeforeSubmit,
     DanPlayerConfig config,
@@ -415,8 +417,10 @@ class DanPlayerController {
   }
 
   addAddDanmakus(OnAddDanmakus event) {
-    if (_addDanmakusEvents.contains(event) == false)
+    if (_addDanmakusEvents.contains(event) == false) {
       _addDanmakusEvents.add(event);
+      event(_danmakus);
+    }
   }
 
   removeAddDanmakus(OnAddDanmakus event) {
@@ -440,28 +444,34 @@ class DanPlayerController {
   addDanmaku(Danmaku danmaku) {
     SchedulerBinding.instance.addPostFrameCallback((_) {
       // print('controller addDanmaku $danmaku');
+      _danmakus.add(danmaku);
       _outputStream.add(EventData.addDanmaku(danmaku));
     });
   }
 
   addDanmakus(Iterable<Danmaku> danmakus) {
     SchedulerBinding.instance.addPostFrameCallback((_) {
-      // print('controller addDanmakus ${danmakus.length}');
+      print('controller addDanmakus ${danmakus.length}');
+      _danmakus.addAll(danmakus);
       _outputStream.add(EventData.addDanmakus(danmakus));
     });
   }
 
+  List<Danmaku> get danmakus => List.from(_danmakus);
+
   DanPlayerController copyWith({DanPlayerConfig config}) {
     return DanPlayerController(config: config)
       .._initEvents.addAll(this._initEvents)
-      .._addDanmakuEvents.addAll(this._addDanmakuEvents)
       .._playingEvents.addAll(this._playingEvents)
       .._seekEvents.addAll(this._seekEvents)
       .._dataSourceEvents.addAll(this._dataSourceEvents)
       .._volumeEvents.addAll(this._volumeEvents)
       .._fullScreenEvents.addAll(this._fullScreenEvents)
       .._videoPlayerController = this._videoPlayerController
+      .._addDanmakuEvents.addAll(this._addDanmakuEvents)
+      .._addDanmakusEvents.addAll(this._addDanmakusEvents)
       ..videoPlayerValue = this.videoPlayerValue
+      .._danmakus.addAll(this._danmakus)
       .._ds = this._ds;
   }
 }

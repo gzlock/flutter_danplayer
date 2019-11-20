@@ -4,6 +4,7 @@ class DanmakuLayer extends StatefulWidget {
   final DanPlayerController controller;
   final int moveDuration, fadeOutDuration;
   final GlobalKey<_Monitor> monitor;
+  final Size size;
 
   const DanmakuLayer({
     Key key,
@@ -11,6 +12,7 @@ class DanmakuLayer extends StatefulWidget {
     @required this.moveDuration,
     @required this.fadeOutDuration,
     @required this.monitor,
+    @required this.size,
   }) : super(key: key);
 
   @override
@@ -28,22 +30,20 @@ class DanmakuLayerState extends State<DanmakuLayer> {
 
   @override
   Widget build(BuildContext context) {
-    RenderBox box = context.findRenderObject();
     _danmakuPainter = DanmakuPainter(
         monitor: widget.monitor,
         controller: widget.controller,
         moveDuration: widget.moveDuration,
         fadeOutDuration: widget.fadeOutDuration,
-        widgetSize: box.size);
+        widgetSize: widget.size);
     return Container(
-      constraints: BoxConstraints.expand(),
+      constraints: BoxConstraints.tight(widget.size),
       child: CustomPaint(painter: _danmakuPainter),
     );
   }
 }
 
 abstract class DanmakuDrawer {
-  final Function(DanmakuDrawer drawer) onHide;
   Danmaku danmaku;
   TextPainter painter;
   Path path;
@@ -51,10 +51,7 @@ abstract class DanmakuDrawer {
 
   double x = 0, y = 0;
 
-  DanmakuDrawer(
-      {@required this.onHide,
-      @required this.danmaku,
-      @required TextStyle style}) {
+  DanmakuDrawer({@required this.danmaku, @required TextStyle style}) {
     _init(this, style);
   }
 
@@ -89,52 +86,49 @@ abstract class DanmakuDrawer {
     }
   }
 
-  void draw(Canvas canvas, Size size, int frameDetails);
+  bool draw(Canvas canvas, Size size, int frameDetails);
 }
 
 class DanmakuMoveDrawer extends DanmakuDrawer {
-  DanmakuMoveDrawer(
-      Function(DanmakuDrawer drawer) onHide, Danmaku danmaku, TextStyle style)
-      : super(onHide: onHide, danmaku: danmaku, style: style);
+  DanmakuMoveDrawer(Danmaku danmaku, TextStyle style)
+      : super(danmaku: danmaku, style: style);
   double speed;
 
   @override
-  void draw(Canvas canvas, Size size, int frameDetail) {
+  bool draw(Canvas canvas, Size size, int frameDetail) {
     _draw(canvas);
     x -= speed * frameDetail.toDouble();
-    if (x < 0) onHide(this);
+    return x > -painter.size.width;
   }
 }
 
 class DanmakuFixedDrawer extends DanmakuDrawer {
-  DanmakuFixedDrawer(
-      Function(DanmakuDrawer drawer) onHide, Danmaku danmaku, TextStyle style)
-      : super(onHide: onHide, danmaku: danmaku, style: style);
+  DanmakuFixedDrawer(Danmaku danmaku, TextStyle style)
+      : super(danmaku: danmaku, style: style);
   int showTime;
 
   @override
-  void draw(Canvas canvas, Size size, int frameDetail) {
+  bool draw(Canvas canvas, Size size, int frameDetail) {
     _draw(canvas);
     showTime -= frameDetail;
-    if (showTime < 0) onHide(this);
+    return showTime > 0;
   }
 }
 
 class DanmakuPainter extends CustomPainter {
-  final List<Danmaku> _total = [];
   final List<Danmaku> _waitToShow = [];
   final int moveDuration, fadeOutDuration;
   final DanPlayerController controller;
   final GlobalKey<_Monitor> monitor;
-  final Size widgetSize;
+  Size widgetSize;
 
   TextStyle textStyle;
   List<DanmakuMoveDrawer> _movePool = [];
   List<DanmakuFixedDrawer> _fixedPool = [];
 
-  Map<int, List<DanmakuMoveDrawer>> _moveShowing = {};
-  Map<int, List<DanmakuFixedDrawer>> _topShowing = {};
-  Map<int, List<DanmakuFixedDrawer>> _bottomShowing = {};
+  final Map<int, List<DanmakuMoveDrawer>> _moveShowing = {};
+  final Map<int, List<DanmakuFixedDrawer>> _topShowing = {};
+  final Map<int, List<DanmakuFixedDrawer>> _bottomShowing = {};
 
   int _lastFrameTime = 0;
   int lineHeight = 0;
@@ -157,7 +151,6 @@ class DanmakuPainter extends CustomPainter {
 
   dispose() {
     _isPlaying = false;
-    _total.clear();
     _waitToShow.clear();
 
     _moveShowing.clear();
@@ -173,11 +166,13 @@ class DanmakuPainter extends CustomPainter {
   }
 
   _configChange(DanPlayerConfig config) {
+    print('painter _configChange');
     init();
   }
 
   void _playStateChanged(bool isPlaying) {
     _isPlaying = isPlaying;
+    _lastFrameTime = DateTime.now().millisecondsSinceEpoch;
   }
 
   void _playing(VideoPlayerValue value) {
@@ -187,7 +182,7 @@ class DanmakuPainter extends CustomPainter {
   void _seek(VideoPlayerValue value) {
     _waitToShow
       ..clear()
-      ..addAll(_total);
+      ..addAll(controller._danmakus);
     _moveShowing.values.forEach((list) {
       _movePool.addAll(list);
       list.clear();
@@ -204,68 +199,70 @@ class DanmakuPainter extends CustomPainter {
 
   _addDanmaku(Danmaku danmaku) {
     // print('danmaku_layer $danmaku');
-    _total.add(danmaku);
     _waitToShow.add(danmaku);
   }
 
   _addDanmakus(List<Danmaku> danmakus) {
-    print('add danmakus ${danmakus.length}');
-    _total.addAll(danmakus);
+    print('add danmakus 1 ${danmakus.length}');
     _waitToShow.addAll(danmakus);
-  }
-
-  void _drawerDead(DanmakuDrawer drawer) {
-    print('drawer dead ${drawer.danmaku}');
-    if (drawer is DanmakuMoveDrawer) {
-      _movePool.add(drawer);
-      _moveShowing[drawer.y].remove(drawer);
-    } else {
-      _fixedPool.add(drawer);
-      if (drawer.danmaku.type == DanmakuType.Top)
-        _topShowing[drawer.y].remove(drawer);
-      else
-        _bottomShowing[drawer.y].remove(drawer);
-    }
   }
 
   @override
   void paint(Canvas canvas, Size size) {
     if (controller.initialized == false) return;
+    if (widgetSize != size) {
+      widgetSize = size;
+      init();
+    }
     var frameDetail =
         _isPlaying ? DateTime.now().millisecondsSinceEpoch - _lastFrameTime : 0;
     Danmaku tempDanmaku;
-    int different;
+    final danmakus = _waitToShow
+        .where((danmaku) =>
+            (danmaku.currentTime.inMilliseconds -
+                controller.videoPlayerValue.position.inMilliseconds) <
+            200)
+        .toList();
     if (_isPlaying) {
-      for (var i = 0; i < _waitToShow.length; i++) {
-        tempDanmaku = _waitToShow[i];
-        different = tempDanmaku.currentTime.inMilliseconds -
-            controller.videoPlayerValue.position.inMilliseconds;
-        print('different $different');
-        if (different < 200) {
-          print('显示');
-          _waitToShow.removeAt(i);
-          _createDrawer(tempDanmaku, size);
-        }
+      for (var i = 0; i < danmakus.length; i++) {
+        tempDanmaku = danmakus[i];
+        _waitToShow.remove(tempDanmaku);
+        tempDanmaku.type == DanmakuType.Normal
+            ? _createMoveDrawer(tempDanmaku, size)
+            : _createFixedDrawer(tempDanmaku, size);
+        // _createDrawer(tempDanmaku, size);
       }
     }
     int top = 0, move = 0, bottom = 0;
     _topShowing.values.forEach((List<DanmakuDrawer> list) {
+      list.removeWhere((drawer) {
+        final bool isDelete = !drawer.draw(canvas, size, frameDetail);
+        if (isDelete) _fixedPool.add(drawer);
+        return isDelete;
+      });
       top += list.length;
-      list.forEach((drawer) => drawer.draw(canvas, size, frameDetail));
     });
     _bottomShowing.values.forEach((List<DanmakuDrawer> list) {
-      move += list.length;
-      list.forEach((drawer) => drawer.draw(canvas, size, frameDetail));
+      list.removeWhere((drawer) {
+        final bool isDelete = !drawer.draw(canvas, size, frameDetail);
+        if (isDelete) _fixedPool.add(drawer);
+        return isDelete;
+      });
+      bottom += list.length;
     });
     _moveShowing.values.forEach((List<DanmakuDrawer> list) {
-      bottom += list.length;
-      list.forEach((drawer) => drawer.draw(canvas, size, frameDetail));
+      list.removeWhere((drawer) {
+        final bool isDelete = !drawer.draw(canvas, size, frameDetail);
+        if (isDelete) _movePool.add(drawer);
+        return isDelete;
+      });
+      move += list.length;
     });
 //    print('paint 显示:$_showingLength 等待：${_waitToShow.length}'
 //        ' 耗时：$frameDetail 尺寸：$size');
     SchedulerBinding.instance.addPostFrameCallback((_) {
       monitor?.currentState?._updateDanmaku(
-        total: _total.length,
+        total: controller._danmakus.length,
         top: top,
         move: move,
         bottom: bottom,
@@ -279,108 +276,111 @@ class DanmakuPainter extends CustomPainter {
 
   int lastMoveLine = 0, lastTopLine = 0, lastBottomLine = 0;
 
-  _createDrawer(Danmaku danmaku, Size size) {
+  _createMoveDrawer(Danmaku danmaku, Size size) {
+    int y = 0;
+    DanmakuMoveDrawer drawer;
+    final entries = _moveShowing.entries;
+    List line;
+    entries.every((kv) {
+      if (kv.value.length == 0) {
+        line = kv.value;
+        y = kv.key;
+      } else {
+        if (kv.value.last.x + kv.value.last.painter.size.width > size.width)
+          return true;
+        line = kv.value;
+        y = kv.key;
+      }
+      // print('every ${kv.key} ${kv.value.length} ${line == null}');
+      return line == null;
+    });
+
+    if (line == null &&
+        controller.config.danmakuOverlapType == DanmakuOverlapType.Unlimited) {
+      /// 找不到可以填入的空行
+      y = lastMoveLine;
+      lastMoveLine += lineHeight;
+    } else if (line != null) {
+      /// 找到空行
+      lastMoveLine = y + lineHeight;
+    } else if (line == null) {
+      return;
+    }
+    if (lastMoveLine > size.height) lastMoveLine = 0;
+    // print('move $y');
+    drawer = _getMoveDrawer(danmaku);
+    drawer.speed = (size.width + drawer.painter.width) / moveDuration;
+    drawer.x = size.width;
+    drawer.y = y.toDouble();
+    line.add(drawer);
+  }
+
+  _createFixedDrawer(Danmaku danmaku, Size size) {
     if (controller.config.danmakuOverlapType != DanmakuOverlapType.Normal &&
         controller.config.danmakuOverlapType != DanmakuOverlapType.Unlimited &&
         danmaku.type == DanmakuType.Bottom) {
       /// 有显示区域限制，不显示: 固定在下方位置的弹幕
       return;
     }
-
     int y = 0;
+    DanmakuFixedDrawer drawer;
 
-    if (danmaku.type == DanmakuType.Normal) {
-      DanmakuMoveDrawer drawer;
-      final entries = _moveShowing.entries;
-      List line;
-      entries.every((kv) {
-        if (kv.value.length == 0) {
-          line = kv.value;
-          y = kv.key;
-        } else {
-          kv.value.every((drawer) {
-            if (drawer.y + drawer.painter.size.width > size.width) return false;
-            line = kv.value;
-            y = kv.key;
-            return false;
-          });
-        }
-        return line == null;
-      });
+    List line;
+    Map<int, List<DanmakuFixedDrawer>> target =
+        danmaku.type == DanmakuType.Top ? _topShowing : _bottomShowing;
 
-      if (line == null &&
-          controller.config.danmakuOverlapType ==
-              DanmakuOverlapType.Unlimited) {
-        /// 找不到可以填入的空行
-        drawer = _createMoveDrawer(danmaku);
-        drawer.speed = (size.width + drawer.painter.width) / moveDuration;
-        drawer.x = size.width;
-        drawer.y = y.toDouble();
-        line.add(drawer);
-      } else if (line != null) {
-        /// 找到空行
-        lastMoveLine = y;
-        drawer = _createMoveDrawer(danmaku);
-        drawer.speed = (size.width + drawer.painter.width) / moveDuration;
-        drawer.x = size.width;
-        drawer.y = y.toDouble();
-        line.add(drawer);
+    target.entries.every((kv) {
+      if (kv.value.length == 0) {
+        line = kv.value;
+        y = kv.key;
       }
-    } else {
-      DanmakuFixedDrawer drawer;
+      return line == null;
+    });
 
-      List line;
-      Map<int, List<DanmakuFixedDrawer>> target =
-          danmaku.type == DanmakuType.Top ? _topShowing : _bottomShowing;
-
-      target.entries.every((kv) {
-        if (kv.value.length == 0) {
-          line = kv.value;
-          y = kv.key;
-        }
-        return line == null;
-      });
-
-      if (line == null &&
-          controller.config.danmakuOverlapType ==
-              DanmakuOverlapType.Unlimited) {
-        /// 找不到空行
-        drawer = _createFixedDrawer(danmaku);
-        if (danmaku.type == DanmakuType.Top) {
-          lastTopLine += lineHeight;
-          if (lastTopLine > size.height) lastTopLine = 0;
-          drawer.y = lastTopLine.toDouble();
-        } else {
-          lastBottomLine += lineHeight;
-          if (lastBottomLine > size.height) lastBottomLine = 0;
-          drawer.y = lastBottomLine + size.height - lineHeight;
-        }
-      } else if (line != null) {
-        /// 找到空行
-        drawer = _createFixedDrawer(danmaku);
-        drawer.showTime = fadeOutDuration;
-        drawer.x = (size.width - drawer.painter.size.width) / 2;
-        drawer.y = y.toDouble();
-        if (danmaku.type == DanmakuType.Bottom) {
-          drawer.y += size.height - lineHeight;
-          lastBottomLine = y;
-        } else
-          lastTopLine = y;
-        line.add(drawer);
+    if (line == null &&
+        controller.config.danmakuOverlapType == DanmakuOverlapType.Unlimited) {
+      /// 找不到空行
+      drawer = _getFixedDrawer(danmaku);
+      if (danmaku.type == DanmakuType.Top) {
+        y = lastTopLine;
+        line = _topShowing[lastTopLine];
+        lastTopLine += lineHeight;
+        if (lastTopLine > size.height) lastTopLine = 0;
+        drawer.y = lastTopLine.toDouble();
+      } else {
+        y = (size.height - lastBottomLine - lineHeight).toInt();
+        line = _bottomShowing[lastBottomLine];
+        lastBottomLine += lineHeight;
+        if (lastBottomLine > size.height) lastBottomLine = 0;
       }
-    }
+    } else if (line != null) {
+      /// 找到空行
+      if (danmaku.type == DanmakuType.Top) {
+        lastTopLine = y + lineHeight;
+        if (lastTopLine > size.height) lastTopLine = 0;
+      } else {
+        y = lastBottomLine = y + lineHeight;
+        if (lastBottomLine > size.height) lastBottomLine = 0;
+        y = (size.height - y).toInt();
+      }
+    } else if (line == null) return;
+    drawer = _getFixedDrawer(danmaku);
+    drawer.showTime = fadeOutDuration;
+    drawer.x = (size.width - drawer.painter.size.width) / 2;
+    drawer.y = y.toDouble();
+    line.add(drawer);
   }
 
-  DanmakuFixedDrawer _createFixedDrawer(Danmaku danmaku) {
+  DanmakuFixedDrawer _getFixedDrawer(Danmaku danmaku) {
     if (_fixedPool.isEmpty)
-      return DanmakuFixedDrawer(_drawerDead, danmaku, textStyle);
+      return DanmakuFixedDrawer(danmaku, textStyle);
     else
       return _fixedPool.removeAt(0)..reset(danmaku, textStyle);
   }
 
-  DanmakuMoveDrawer _createMoveDrawer(Danmaku danmaku) {
-    if (_fixedPool.isEmpty)
-      return DanmakuMoveDrawer(_drawerDead, danmaku, textStyle);
+  DanmakuMoveDrawer _getMoveDrawer(Danmaku danmaku) {
+    if (_movePool.isEmpty)
+      return DanmakuMoveDrawer(danmaku, textStyle);
     else
       return _movePool.removeAt(0)..reset(danmaku, textStyle);
   }
@@ -391,6 +391,8 @@ class DanmakuPainter extends CustomPainter {
   }
 
   void init() {
+    print('danmaku layer init $widgetSize');
+    if (widgetSize == null) return;
     textStyle = TextStyle(
       fontSize: controller.config.fontSize,
       shadows: [
@@ -416,6 +418,7 @@ class DanmakuPainter extends CustomPainter {
       height += lineHeight;
       if ((height + lineHeight) > widgetSize.height) break;
     }
-    print('lineHeight $widgetSize $lineHeight ');
+    print(
+        'danmaku layer size: $widgetSize, lineHeight: $lineHeight, lines:${_moveShowing.keys}');
   }
 }

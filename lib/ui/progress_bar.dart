@@ -62,7 +62,7 @@ class DanPlayerProgressBarState extends State<DanPlayerProgressBar> {
   }
 
   void _seekTo(double x, {bool seek: true}) {
-    x = x.clamp(0, _width);
+    x = x.clamp(0.0, _width);
     _playingX = x;
     _handlerX = x;
     if (seek && _videoValue != null) {
