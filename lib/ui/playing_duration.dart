@@ -15,20 +15,24 @@ class _PlayDuration extends State<PlayingDuration> {
   @override
   void initState() {
     super.initState();
-    widget.controller.addVideoPlayerInit(_init);
+    widget.controller.addVideoPlayerInit(_configChanged);
+    widget.controller.addConfig(_configChanged);
   }
 
   @override
   void dispose() {
-    widget.controller.removeVideoPlayerInit(_init);
-    widget.controller.removeVideoPlayerInit(_playing);
+    widget.controller.removeVideoPlayerInit(_configChanged);
+    widget.controller.removePlaying(_playing);
+    widget.controller.removeConfig(_configChanged);
     super.dispose();
   }
 
-  void _init(VideoPlayerValue value) {
-    if (widget.controller._ds._mode == DanPlayerMode.Live) {
+  void _configChanged(_) {
+    if (widget.controller.config.mode == DanPlayerMode.Live) {
       text = '直播中';
-    } else if (widget.controller._ds._mode == DanPlayerMode.Normal) {
+      setState(() {});
+      widget.controller.removePlaying(_playing);
+    } else if (widget.controller.config.mode == DanPlayerMode.Normal) {
       widget.controller.addPlaying(_playing);
     }
   }

@@ -100,6 +100,8 @@ class DanPlayerConfig {
 
   final DanmakuOverlapType danmakuOverlapType;
 
+  final DanPlayerMode mode;
+
   DanPlayerConfig({
     Widget progressBarIndicator,
     Widget loadingWidget,
@@ -118,6 +120,7 @@ class DanPlayerConfig {
     this.fontSize: 18,
     this.showTitleBar: true,
     this.showFullScreenButton: true,
+    this.mode: DanPlayerMode.Normal,
   })  : assert(backgroundDeepColor != null),
         assert(progressBarColor != null),
         assert(progressBarBufferAreaColor != null),
@@ -144,6 +147,7 @@ class DanPlayerConfig {
     int fontSize,
     bool showFullScreenButton,
     bool showTitleBar,
+    DanPlayerMode mode,
   }) {
     return DanPlayerConfig(
       danmakuOverlapType: danmakuOverlapType ?? this.danmakuOverlapType,
@@ -165,6 +169,7 @@ class DanPlayerConfig {
       fontSize: fontSize ?? this.fontSize,
       showTitleBar: showTitleBar ?? this.showTitleBar,
       showFullScreenButton: showFullScreenButton ?? this.showFullScreenButton,
+      mode: mode ?? this.mode,
     );
   }
 }

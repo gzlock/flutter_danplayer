@@ -317,7 +317,7 @@ class UILayerState extends State<UILayer> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: <Widget>[
                   Visibility(
-                    visible: widget.controller.mode == DanPlayerMode.Normal,
+                    visible: widget.controller.config.mode == DanPlayerMode.Normal,
                     child: DanPlayerProgressBar(
                       controller: widget.controller,
                       uiState: this,

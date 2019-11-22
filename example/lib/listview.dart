@@ -112,7 +112,6 @@ class _InListView extends State<InListView>
               textColor: Colors.white,
               label: Text('播放'),
             ),
-            actions: actions,
             child: DanPlayer(
               controller: _controller,
               fullScreen: false,
@@ -128,11 +127,12 @@ class _InListView extends State<InListView>
               controller: _tabController,
               children: [
                 VideoControlWidget(
-                  url:url,
+                  url: url,
                   controller: _controller,
+                  actions: actions,
                 ),
                 DanmakuControlWidget(
-                  url:url,
+                  url: url,
                   controller: _controller,
                 )
               ],
@@ -167,7 +167,6 @@ class DanPlayerPersistentHeader extends StatefulWidget {
   final DanPlayerController controller;
   final ScrollController scrollController;
   final double maxExtent;
-  final List<Widget> actions;
   final bool pinned, floating;
   final Color backgroundColor;
 
@@ -178,13 +177,11 @@ class DanPlayerPersistentHeader extends StatefulWidget {
     @required this.controller,
     @required this.child,
     @required this.scrollController,
-    this.actions: const [],
     this.pinned: true,
     this.floating: true,
     this.backgroundColor: Colors.blue,
   })  : assert(maxExtent != null && maxExtent > 0),
         assert(child != null),
-        assert(actions != null),
         super(key: key);
 
   @override
@@ -194,29 +191,40 @@ class DanPlayerPersistentHeader extends StatefulWidget {
 class _DanPlayerPersistentHeader extends State<DanPlayerPersistentHeader>
     with SingleTickerProviderStateMixin {
   VideoHeaderDelegate delegate;
-  bool _playing = false;
+  List<Widget> actions;
 
   @override
   void initState() {
     super.initState();
-    delegate = VideoHeaderDelegate(
-        title: widget.title,
-        child: widget.child,
-        controller: widget.controller,
-        scrollController: widget.scrollController,
-        color: widget.backgroundColor,
-        maxExtent: widget.maxExtent,
-        actions: widget.actions);
-    widget.controller.addPlayStateChanged(_playState);
+    widget.controller.addConfig(_create);
   }
 
-  void _playState(bool value) {
-    _playing = value;
+  void _create(DanPlayerConfig config) {
+    actions = config.actions;
+    print('DanPlayerPersistentHeader config change');
+    delegate?.dispose();
+    delegate = VideoHeaderDelegate(
+      title: widget.title,
+      child: widget.child,
+      controller: widget.controller,
+      scrollController: widget.scrollController,
+      color: widget.backgroundColor,
+      maxExtent: widget.maxExtent,
+      actions: config.actions,
+    );
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeConfig(_create);
+    delegate.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    print('DanPlayerPersistentHeader build');
+    print('DanPlayerPersistentHeader build ${delegate.actions}');
     return SliverPersistentHeader(
       pinned: widget.pinned,
       floating: widget.floating,
@@ -244,9 +252,8 @@ class VideoHeaderDelegate extends SliverPersistentHeaderDelegate {
     @required this.scrollController,
     this.color,
     this.title,
-    this.actions = const [],
-  })  : assert(child != null),
-        assert(actions != null) {
+    this.actions,
+  }) : assert(child != null) {
     controller.addPlayStateChanged(_playState);
     SchedulerBinding.instance.addPostFrameCallback((_) {});
   }
@@ -266,7 +273,8 @@ class VideoHeaderDelegate extends SliverPersistentHeaderDelegate {
   }
 
   @override
-  bool shouldRebuild(SliverPersistentHeaderDelegate oldDelegate) => false;
+  bool shouldRebuild(VideoHeaderDelegate oldDelegate) =>
+      oldDelegate.actions != actions;
 
   void _setMinExtent(context) {
     // print('set minExtent');

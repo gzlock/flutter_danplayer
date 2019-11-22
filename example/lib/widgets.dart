@@ -79,8 +79,9 @@ class SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
 class VideoControlWidget extends StatefulWidget {
   final DanPlayerController controller;
   final String url;
+  final List<Widget> actions;
 
-  const VideoControlWidget({Key key, this.controller, this.url})
+  const VideoControlWidget({Key key, this.controller, this.url, this.actions})
       : super(key: key);
 
   @override
@@ -89,6 +90,7 @@ class VideoControlWidget extends StatefulWidget {
 
 class _VideoControlWidget extends State<VideoControlWidget> {
   DanPlayerMode _mode = DanPlayerMode.Normal;
+  bool _showFullScreen = true, _enableDanmkau = true, _showActions = true;
 
   @override
   Widget build(BuildContext context) {
@@ -108,9 +110,8 @@ class _VideoControlWidget extends State<VideoControlWidget> {
                       if (selected)
                         setState(() {
                           _mode = DanPlayerMode.Normal;
-                          widget.controller.setDataSource(DataSource.network(
-                              widget.url,
-                              mode: DanPlayerMode.Normal));
+                          widget.controller.config =
+                              widget.controller.config.copyWith(mode: _mode);
                         });
                     },
                     selected: _mode == DanPlayerMode.Normal,
@@ -123,9 +124,8 @@ class _VideoControlWidget extends State<VideoControlWidget> {
                       if (selected)
                         setState(() {
                           _mode = DanPlayerMode.Live;
-                          widget.controller.setDataSource(DataSource.network(
-                              widget.url,
-                              mode: DanPlayerMode.Live));
+                          widget.controller.config =
+                              widget.controller.config.copyWith(mode: _mode);
                         });
                     },
                     selected: _mode == DanPlayerMode.Live,
@@ -137,6 +137,58 @@ class _VideoControlWidget extends State<VideoControlWidget> {
               ],
             ),
           )),
+          Card(
+              child: Padding(
+                  padding: EdgeInsets.all(5),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '自定义界面',
+                        style: titleStyle,
+                      ),
+                      CheckboxListTile(
+                        onChanged: (bool selected) {
+                          setState(() {
+                            _showFullScreen = !_showFullScreen;
+                            widget.controller.config = widget.controller.config
+                                .copyWith(
+                                    showFullScreenButton: _showFullScreen);
+                          });
+                        },
+                        selected: _showFullScreen,
+                        value: _showFullScreen,
+                        title: Text('显示 / 隐藏 全屏按钮'),
+                      ),
+                      CheckboxListTile(
+                        onChanged: (bool selected) {
+                          setState(() {
+                            _enableDanmkau = !_enableDanmkau;
+                            widget.controller.config = widget.controller.config
+                                .copyWith(danmaku: _enableDanmkau);
+                          });
+                        },
+                        selected: _enableDanmkau,
+                        value: _enableDanmkau,
+                        title: Text('显示 / 隐藏 弹幕功能'),
+                        subtitle: Text('包括：发弹幕的按钮、弹幕内容层'),
+                      ),
+                      CheckboxListTile(
+                        onChanged: (bool selected) {
+                          setState(() {
+                            _showActions = !_showActions;
+                            widget.controller.config = widget.controller.config
+                                .copyWith(
+                                    actions:
+                                        _showActions ? widget.actions : []);
+                          });
+                        },
+                        selected: _showActions,
+                        value: _showActions,
+                        title: Text('显示 / 隐藏 右上角按钮(Actions)'),
+                      ),
+                    ],
+                  )))
         ],
       ),
     );

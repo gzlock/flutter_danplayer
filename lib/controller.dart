@@ -81,8 +81,6 @@ class DataSource {
 
   bool _autoPlay;
 
-  DanPlayerMode _mode;
-
   DataSource._();
 
   /// Create file data source
@@ -96,8 +94,7 @@ class DataSource {
       .._title = title
       .._autoPlay = autoPlay
       .._file = file
-      .._type = DataSourceType.file
-      .._mode = mode;
+      .._type = DataSourceType.file;
     return ds;
   }
 
@@ -106,14 +103,12 @@ class DataSource {
     String url, {
     String title,
     bool autoPlay: true,
-    DanPlayerMode mode = DanPlayerMode.Normal,
   }) {
     return DataSource._()
       .._title = title
       .._autoPlay = autoPlay
       .._url = url
-      .._type = DataSourceType.network
-      .._mode = mode;
+      .._type = DataSourceType.network;
   }
 
   /// Create asset data source
@@ -122,15 +117,13 @@ class DataSource {
     String package,
     String title,
     bool autoPlay: true,
-    DanPlayerMode mode = DanPlayerMode.Normal,
   }) {
     var ds = DataSource._()
       .._title = title
       .._autoPlay = autoPlay
       .._assetName = assetName
       .._assetPackage = package
-      .._type = DataSourceType.asset
-      .._mode = mode;
+      .._type = DataSourceType.asset;
     return ds;
   }
 
@@ -153,7 +146,6 @@ class DataSource {
       'autoPlay': _autoPlay,
       'url': _url,
       'file': _file,
-      'mode': _mode,
     });
   }
 }
@@ -204,9 +196,6 @@ class DanPlayerController {
   bool _isPlaying = false;
   double _volume = 1;
   bool _fullScreen = false;
-  DanPlayerMode _mode;
-
-  DanPlayerMode get mode => _mode;
 
   bool get initialized => _initialized;
 
@@ -276,8 +265,9 @@ class DanPlayerController {
     assert(ds != null);
     _ds = ds;
     _initialized = false;
-    _mode = ds._mode;
     _videoPlayerController?.dispose();
+    _videoPlayerController = null;
+    videoPlayerValue = null;
     switch (ds._type) {
       case DataSourceType.asset:
         _videoPlayerController = VideoPlayerController.asset(ds._assetName,
@@ -295,6 +285,7 @@ class DanPlayerController {
     _videoPlayerController.addListener(_videoPlayerInit);
   }
 
+  /// 当controller准备好后的第一次事件
   void _videoPlayerInit() {
     if (_videoPlayerController.value?.initialized == true) {
       _initialized = true;
@@ -429,6 +420,7 @@ class DanPlayerController {
 
   /// Normal methods
   play() {
+    print('controller play');
     _videoPlayerController?.play();
   }
 
