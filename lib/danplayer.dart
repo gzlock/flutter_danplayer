@@ -16,7 +16,7 @@ part 'controller.dart';
 
 part 'route.dart';
 
-part 'ui/video_gesture.dart';
+part 'ui/video_gestures.dart';
 
 part 'ui/buttons.dart';
 
@@ -200,6 +200,7 @@ class DanPlayerState extends State<DanPlayer> {
     super.initState();
     widget.controller._initEvents.add(_init);
     widget.controller._configChangedEvents.add(_configChanged);
+    if (widget.fullScreen) widget.controller.addPlayStateChanged(_playState);
 
     SchedulerBinding.instance.addPostFrameCallback((_) {
       final RenderBox box = context.findRenderObject();
@@ -207,7 +208,7 @@ class DanPlayerState extends State<DanPlayer> {
       _configChanged(null);
     });
     if (widget.fullScreen) {
-      _fullScreenAction(true);
+      _fullScreenAction(widget.fullScreen);
     }
   }
 
@@ -216,10 +217,14 @@ class DanPlayerState extends State<DanPlayer> {
     // print('danplayer dispose');
     widget.controller._initEvents.remove(_init);
     widget.controller._configChangedEvents.remove(_configChanged);
+    widget.controller.removePlayStateChanged(_playState);
+    if (widget.fullScreen) {
+      _fullScreenAction(!widget.fullScreen);
+    }
     super.dispose();
   }
 
-  void _configChanged(_) {
+  void _configChanged(DanPlayerConfig _) {
     print('_configChanged');
     if (mounted) setState(() {});
   }
@@ -242,10 +247,20 @@ class DanPlayerState extends State<DanPlayer> {
     _configChanged(null);
   }
 
+  void _playState(bool playing) {
+    if (playing) {
+      _hideStatusBar();
+    } else {
+      _showStatusBar();
+    }
+  }
+
+  /// create a route
   void _createFullScreen() async {
     Navigator.push(
         context,
         FullScreenRoute((context) => DanPlayer(
+              fullScreen: true,
               controller: widget.controller.copyWith(
                   config: widget.controller.config.copyWith(
                 showTitleBar: true,
@@ -254,8 +269,8 @@ class DanPlayerState extends State<DanPlayer> {
             )));
   }
 
-  void _fullScreenAction(bool fullScreen) async {
-    if (fullScreen) {
+  void _fullScreenAction(bool fullscreen) async {
+    if (fullscreen) {
       /// 隐藏系统栏
       _hideStatusBar();
 
@@ -270,20 +285,18 @@ class DanPlayerState extends State<DanPlayer> {
       /// 恢复系统栏
       _showStatusBar();
 
-      () async {
-        /// 恢复竖屏
-        await SystemChrome.setPreferredOrientations([
-          DeviceOrientation.portraitUp,
-        ]);
-//
-//        /// 允许所有方向
-//        SystemChrome.setPreferredOrientations([
-//          DeviceOrientation.portraitUp,
-//          DeviceOrientation.portraitDown,
-//          DeviceOrientation.landscapeLeft,
-//          DeviceOrientation.landscapeRight,
-//        ]);
-      }();
+      /// 恢复竖屏
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+      ]);
+
+      /// 允许所有方向
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
     }
   }
 
@@ -305,15 +318,12 @@ class DanPlayerState extends State<DanPlayer> {
         Container(color: Colors.black),
 
         /// 视频画面
-        Visibility(
-          visible: widget.controller.initialized,
-          child: Center(
-            child: AspectRatio(
-              aspectRatio: _videoAspectRatio,
-              child: danPlayerRenderVideo
-                  ? VideoPlayer(widget.controller._videoPlayerController)
-                  : Monitor(key: _monitorKey, controller: widget.controller),
-            ),
+        Center(
+          child: AspectRatio(
+            aspectRatio: _videoAspectRatio,
+            child: danPlayerRenderVideo
+                ? VideoPlayer(widget.controller._videoPlayerController)
+                : Monitor(key: _monitorKey, controller: widget.controller),
           ),
         ),
         DanmakuLayer(
@@ -334,8 +344,10 @@ class DanPlayerState extends State<DanPlayer> {
                   kToolbarHeight + MediaQuery.of(context).padding.top),
           onTapFullScreenButton: () {
             if (widget.fullScreen) {
+              print('退出全屏');
               Navigator.pop(context);
             } else {
+              print('进入全屏');
               _createFullScreen();
             }
           },

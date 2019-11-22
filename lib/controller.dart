@@ -12,6 +12,7 @@ typedef OnAddDanmaku = Function(Danmaku danmaku);
 typedef OnAddDanmakus = Function(List<Danmaku> danmakus);
 typedef OnVideoInit = Function(VideoPlayerValue value);
 typedef OnConfigChanged = Function(DanPlayerConfig config);
+typedef OnShowDanmaku = Function(bool show);
 
 enum EventType {
   playing,
@@ -23,6 +24,7 @@ enum EventType {
   addDanmaku,
   addDanmakus,
   videoPlayerInit,
+  showDanmaku,
 }
 
 class EventData<T> {
@@ -62,6 +64,9 @@ class EventData<T> {
 
   factory EventData.addDanmakus(T value) =>
       EventData<T>(EventType.addDanmakus, value);
+
+  factory EventData.showDanmakus(T value) =>
+      EventData<T>(EventType.showDanmaku, value);
 }
 
 /// Entity classe for data sources.
@@ -165,6 +170,7 @@ class DanPlayerController {
   final List<OnAddDanmakus> _addDanmakusEvents = [];
   final List<OnVideoInit> _initEvents = [];
   final List<OnConfigChanged> _configChangedEvents = [];
+  final List<OnShowDanmaku> _showDanmakuEvents = [];
 
   final List<Danmaku> _danmakus = [];
 
@@ -256,6 +262,9 @@ class DanPlayerController {
           break;
         case EventType.videoPlayerInit:
           _initEvents.forEach((fun) => fun(data.value));
+          break;
+        case EventType.showDanmaku:
+          _showDanmakuEvents.forEach((fun) => fun(data.value));
           break;
       }
     }
@@ -447,6 +456,14 @@ class DanPlayerController {
       _danmakus.addAll(danmakus);
       _outputStream.add(EventData.addDanmakus(danmakus));
     });
+  }
+
+  clearDanmaku() {
+    _danmakus.clear();
+  }
+
+  showDanmaku(bool value) {
+    send(EventData.showDanmakus(value));
   }
 
   List<Danmaku> get danmakus => List.from(_danmakus);

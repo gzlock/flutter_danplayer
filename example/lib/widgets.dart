@@ -1,10 +1,11 @@
 import 'dart:math';
 
 import 'package:danplayer/danplayer.dart';
+import 'package:example/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-final titleStyle = TextStyle(color: Colors.blue, fontSize: 18);
+final titleStyle = TextStyle(color: Colors.orange, fontSize: 18);
 
 class LoadingView extends StatefulWidget {
   final Duration duration;
@@ -95,7 +96,8 @@ class _VideoControlWidget extends State<VideoControlWidget> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      child: Column(
+      child: ListView(
+        physics: NeverScrollableScrollPhysics(),
         children: [
           Card(
               child: Padding(
@@ -138,57 +140,57 @@ class _VideoControlWidget extends State<VideoControlWidget> {
             ),
           )),
           Card(
-              child: Padding(
-                  padding: EdgeInsets.all(5),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '自定义界面',
-                        style: titleStyle,
-                      ),
-                      CheckboxListTile(
-                        onChanged: (bool selected) {
-                          setState(() {
-                            _showFullScreen = !_showFullScreen;
-                            widget.controller.config = widget.controller.config
-                                .copyWith(
-                                    showFullScreenButton: _showFullScreen);
-                          });
-                        },
-                        selected: _showFullScreen,
-                        value: _showFullScreen,
-                        title: Text('显示 / 隐藏 全屏按钮'),
-                      ),
-                      CheckboxListTile(
-                        onChanged: (bool selected) {
-                          setState(() {
-                            _enableDanmkau = !_enableDanmkau;
-                            widget.controller.config = widget.controller.config
-                                .copyWith(danmaku: _enableDanmkau);
-                          });
-                        },
-                        selected: _enableDanmkau,
-                        value: _enableDanmkau,
-                        title: Text('显示 / 隐藏 弹幕功能'),
-                        subtitle: Text('包括：发弹幕的按钮、弹幕内容层'),
-                      ),
-                      CheckboxListTile(
-                        onChanged: (bool selected) {
-                          setState(() {
-                            _showActions = !_showActions;
-                            widget.controller.config = widget.controller.config
-                                .copyWith(
-                                    actions:
-                                        _showActions ? widget.actions : []);
-                          });
-                        },
-                        selected: _showActions,
-                        value: _showActions,
-                        title: Text('显示 / 隐藏 右上角按钮(Actions)'),
-                      ),
-                    ],
-                  )))
+            child: Padding(
+              padding: EdgeInsets.all(5),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '自定义界面',
+                    style: titleStyle,
+                  ),
+                  CheckboxListTile(
+                    onChanged: (bool selected) {
+                      setState(() {
+                        _showFullScreen = !_showFullScreen;
+                        widget.controller.config = widget.controller.config
+                            .copyWith(showFullScreenButton: _showFullScreen);
+                      });
+                    },
+                    selected: _showFullScreen,
+                    value: _showFullScreen,
+                    title: Text('显示 / 隐藏 全屏按钮'),
+                  ),
+                  CheckboxListTile(
+                    onChanged: (bool selected) {
+                      setState(() {
+                        _enableDanmkau = !_enableDanmkau;
+                        widget.controller.config = widget.controller.config
+                            .copyWith(danmaku: _enableDanmkau);
+                      });
+                    },
+                    selected: _enableDanmkau,
+                    value: _enableDanmkau,
+                    title: Text('显示 / 隐藏 弹幕功能'),
+                    subtitle: Text('包括：发弹幕的按钮、弹幕内容层'),
+                  ),
+                  CheckboxListTile(
+                    onChanged: (bool selected) {
+                      setState(() {
+                        _showActions = !_showActions;
+                        widget.controller.config = widget.controller.config
+                            .copyWith(
+                                actions: _showActions ? widget.actions : []);
+                      });
+                    },
+                    selected: _showActions,
+                    value: _showActions,
+                    title: Text('显示 / 隐藏 右上角按钮(Actions)'),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -226,7 +228,8 @@ class _DanmakuControlWidget extends State<DanmakuControlWidget> {
   Widget build(BuildContext context) {
     return Container(
       constraints: BoxConstraints.expand(),
-      child: Column(
+      child: ListView(
+        physics: NeverScrollableScrollPhysics(),
         children: [
           Card(
             child: Padding(
@@ -306,6 +309,7 @@ class _DanmakuControlWidget extends State<DanmakuControlWidget> {
                             DanmakuType type;
                             String text;
                             for (var i = 0; i < count; i++) {
+                              final hasBorder = random.nextBool();
                               if (isRandom) {
                                 type = DanmakuType.values[
                                     random.nextInt(DanmakuType.values.length)];
@@ -318,11 +322,8 @@ class _DanmakuControlWidget extends State<DanmakuControlWidget> {
                               danmakus.add(Danmaku(
                                   text: text,
                                   type: type,
-                                  fill: Color.fromRGBO(
-                                      100 + random.nextInt(155),
-                                      100 + random.nextInt(155),
-                                      100 + random.nextInt(155),
-                                      1),
+                                  fill: randomColor(),
+                                  borderColor: hasBorder ? randomColor() : null,
                                   currentTime: widget.controller
                                           .videoPlayerValue.position +
                                       Duration(

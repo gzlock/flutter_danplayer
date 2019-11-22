@@ -162,6 +162,8 @@ class UILayerState extends State<UILayer> {
         toIcon: 0xe696,
         onTap: (state) {
           state.state = !state.state;
+          widget.controller
+              ._distributeEvents(EventData.showDanmakus(state.state));
           hide();
         },
       ));
@@ -254,7 +256,7 @@ class UILayerState extends State<UILayer> {
         ),
 
         /// 触控、滑动等操作
-        VideoGesture(
+        VideoGestures(
           controller: widget.controller,
           uiState: this,
         ),
@@ -317,7 +319,8 @@ class UILayerState extends State<UILayer> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: <Widget>[
                   Visibility(
-                    visible: widget.controller.config.mode == DanPlayerMode.Normal,
+                    visible:
+                        widget.controller.config.mode == DanPlayerMode.Normal,
                     child: DanPlayerProgressBar(
                       controller: widget.controller,
                       uiState: this,

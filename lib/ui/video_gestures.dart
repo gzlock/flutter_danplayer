@@ -1,20 +1,20 @@
 part of '../danplayer.dart';
 
-class VideoGesture extends StatefulWidget {
+class VideoGestures extends StatefulWidget {
   final DanPlayerController controller;
   final UILayerState uiState;
 
-  const VideoGesture({
+  const VideoGestures({
     Key key,
     @required this.uiState,
     @required this.controller,
   }) : super(key: key);
 
   @override
-  VideoGestureState createState() => VideoGestureState();
+  VideoGesturesState createState() => VideoGesturesState();
 }
 
-class VideoGestureState extends State<VideoGesture> {
+class VideoGesturesState extends State<VideoGestures> {
   final GlobalKey _container = GlobalKey();
   VideoPlayerValue _playerValue;
   double _volumeY;
@@ -169,6 +169,12 @@ class VideoGestureState extends State<VideoGesture> {
           onHorizontalDragEnd: (_) {
             _changingPosition = false;
             setState(() {});
+          },
+          onDoubleTap: () {
+            if (widget.controller.playing)
+              widget.controller.pause();
+            else
+              widget.controller.play();
           },
           child: Container(
             key: _container,

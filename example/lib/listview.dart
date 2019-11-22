@@ -1,5 +1,6 @@
 import 'package:danplayer/danplayer.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
@@ -91,16 +92,16 @@ class _InListView extends State<InListView>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: CustomScrollView(
-        controller: _scrollController,
-        cacheExtent: 220,
-        slivers: [
+        body: NestedScrollView(
+      controller: _scrollController,
+      dragStartBehavior: DragStartBehavior.down,
+      headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
+        return [
           DanPlayerPersistentHeader(
             controller: _controller,
             scrollController: _scrollController,
             maxExtent: 220,
             pinned: true,
-            floating: true,
             title: FlatButton.icon(
               onPressed: () {
                 _scrollController.jumpTo(0);
@@ -122,25 +123,23 @@ class _InListView extends State<InListView>
             delegate: SliverTabBarDelegate(_buildTabs(),
                 color: Theme.of(context).scaffoldBackgroundColor),
           ),
-          SliverFillRemaining(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                VideoControlWidget(
-                  url: url,
-                  controller: _controller,
-                  actions: actions,
-                ),
-                DanmakuControlWidget(
-                  url: url,
-                  controller: _controller,
-                )
-              ],
-            ),
+        ];
+      },
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          VideoControlWidget(
+            url: url,
+            controller: _controller,
+            actions: actions,
+          ),
+          DanmakuControlWidget(
+            url: url,
+            controller: _controller,
           ),
         ],
       ),
-    );
+    ));
   }
 
   /// Tab选项卡
@@ -192,11 +191,13 @@ class _DanPlayerPersistentHeader extends State<DanPlayerPersistentHeader>
     with SingleTickerProviderStateMixin {
   VideoHeaderDelegate delegate;
   List<Widget> actions;
+  FloatingHeaderSnapConfiguration snapConfiguration;
 
   @override
   void initState() {
     super.initState();
     widget.controller.addConfig(_create);
+    snapConfiguration = FloatingHeaderSnapConfiguration(vsync: this);
   }
 
   void _create(DanPlayerConfig config) {
@@ -211,6 +212,7 @@ class _DanPlayerPersistentHeader extends State<DanPlayerPersistentHeader>
       color: widget.backgroundColor,
       maxExtent: widget.maxExtent,
       actions: config.actions,
+      snapConfiguration: snapConfiguration,
     );
     setState(() {});
   }
@@ -241,6 +243,7 @@ class VideoHeaderDelegate extends SliverPersistentHeaderDelegate {
   final double maxExtent;
   final List<Widget> actions;
   final Color color;
+  final FloatingHeaderSnapConfiguration snapConfiguration;
   double _minExtent = 0;
   bool _isSetMinExtent = false;
   bool _isPlaying = false;
@@ -253,6 +256,7 @@ class VideoHeaderDelegate extends SliverPersistentHeaderDelegate {
     this.color,
     this.title,
     this.actions,
+    this.snapConfiguration,
   }) : assert(child != null) {
     controller.addPlayStateChanged(_playState);
     SchedulerBinding.instance.addPostFrameCallback((_) {});
@@ -285,6 +289,7 @@ class VideoHeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
+    print('shrinkOffset $shrinkOffset');
     if (_isSetMinExtent == false) {
       _setMinExtent(context);
     }

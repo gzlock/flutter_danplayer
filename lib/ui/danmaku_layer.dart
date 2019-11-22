@@ -47,7 +47,7 @@ abstract class DanmakuDrawer {
   Danmaku danmaku;
   TextPainter painter;
   Path path;
-  Paint paint;
+  BorderSide border;
 
   double x = 0, y = 0;
 
@@ -63,10 +63,16 @@ abstract class DanmakuDrawer {
   }
 
   void _draw(Canvas canvas) {
-    painter.paint(canvas, Offset(x, y));
+    painter.paint(canvas, Offset(x + 1, y + 1));
     if (danmaku.hasBorderColor) {
-      canvas.drawRect(
-          Rect.fromLTWH(x, y, painter.size.width, painter.size.height), paint);
+      paintBorder(
+        canvas,
+        Rect.fromLTWH(x, y, painter.size.width + 2, painter.size.height + 2),
+        top: border,
+        left: border,
+        bottom: border,
+        right: border,
+      );
     }
   }
 
@@ -78,12 +84,10 @@ abstract class DanmakuDrawer {
       textDirection: TextDirection.ltr,
     )..layout();
     drawer.x = drawer.y = 0;
-    drawer.paint = null;
-    if (drawer.danmaku.hasBorderColor) {
-      drawer.paint = Paint()
-        ..color = drawer.danmaku.borderColor
-        ..style = PaintingStyle.stroke;
-    }
+    if (drawer.danmaku.hasBorderColor)
+      drawer.border = BorderSide(width: 1, color: drawer.danmaku.borderColor);
+    else
+      drawer.border = null;
   }
 
   bool draw(Canvas canvas, Size size, int frameDetails);
@@ -132,7 +136,7 @@ class DanmakuPainter extends CustomPainter {
 
   int _lastFrameTime = 0;
   int lineHeight = 0;
-  bool _isPlaying = false;
+  bool _isPlaying = false, _showDanmaku = true, _enable = true;
   VideoPlayerValue _playerValue;
 
   DanmakuPainter(
@@ -146,7 +150,8 @@ class DanmakuPainter extends CustomPainter {
     controller.addPlaying(_playing);
     controller.addAddDanmaku(_addDanmaku);
     controller.addAddDanmakus(_addDanmakus);
-    controller.addConfig(_configChange);
+    controller.addConfig(_configChanged);
+    controller._showDanmakuEvents.add(_showDanmakuChanged);
   }
 
   dispose() {
@@ -162,12 +167,26 @@ class DanmakuPainter extends CustomPainter {
     controller.removePlaying(_playing);
     controller.removeAddDanmaku(_addDanmaku);
     controller.removeAddDanmakus(_addDanmakus);
-    controller.removeConfig(_configChange);
+    controller.removeConfig(_configChanged);
   }
 
-  _configChange(DanPlayerConfig config) {
+  void _showDanmakuChanged(bool show) {
+    _showDanmaku = show;
+  }
+
+  void _configChanged(DanPlayerConfig config) {
     print('painter _configChange');
     init();
+    _enable = config.danmaku;
+    switch (config.danmakuOverlapType) {
+      case DanmakuOverlapType._25Percent:
+      case DanmakuOverlapType._50Percent:
+      case DanmakuOverlapType._75Percent:
+        _bottomShowing.forEach((key, value) => _fixedPool.addAll(value));
+        _bottomShowing.clear();
+        break;
+      default:
+    }
   }
 
   void _playStateChanged(bool isPlaying) {
@@ -210,6 +229,7 @@ class DanmakuPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (controller.initialized == false) return;
+    if (_showDanmaku == false) return;
     if (widgetSize != size) {
       widgetSize = size;
       init();
@@ -391,7 +411,6 @@ class DanmakuPainter extends CustomPainter {
   }
 
   void init() {
-    print('danmaku layer init $widgetSize');
     if (widgetSize == null) return;
     textStyle = TextStyle(
       fontSize: controller.config.fontSize,
