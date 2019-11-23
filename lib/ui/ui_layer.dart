@@ -91,18 +91,18 @@ class UILayerState extends State<UILayer> {
     _isShow = false;
     _titleTop = -widget.uiSize.appBarHeight;
     _controllerBottom = -widget.uiSize.controllerHeight;
-    widget.controller._outputStream.add(EventData.uiVisibleChanged(false));
+    widget.controller._outputStream.add(EventData.uiVisibleChanged(_isShow));
     setState(() {});
   }
 
   void show() {
     _cancelTimer();
     _titleTop = _controllerBottom = 0;
-    if (_isShow == false)
-      setState(() {
-        _isShow = true;
-        widget.controller._outputStream.add(EventData.uiVisibleChanged(true));
-      });
+    if (_isShow == false) {
+      _isShow = true;
+      widget.controller._outputStream.add(EventData.uiVisibleChanged(_isShow));
+      if (mounted) setState(() {});
+    }
   }
 
   void _cancelTimer() {

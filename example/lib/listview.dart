@@ -97,11 +97,31 @@ class _InListView extends State<InListView>
       dragStartBehavior: DragStartBehavior.down,
       headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
         return [
-          DanPlayerPersistentHeader(
-            controller: _controller,
-            scrollController: _scrollController,
-            maxExtent: 220,
+//          DanPlayerPersistentHeader(
+//            controller: _controller,
+//            scrollController: _scrollController,
+//            maxExtent: 220,
+//            pinned: true,
+//            title: FlatButton.icon(
+//              onPressed: () {
+//                _scrollController.jumpTo(0);
+//                _controller.play();
+//              },
+//              icon: Icon(
+//                Icons.play_arrow,
+//              ),
+//              textColor: Colors.white,
+//              label: Text('播放'),
+//            ),
+//            child: DanPlayer(
+//              controller: _controller,
+//              fullScreen: false,
+//            ),
+//          ),
+          SliverAppBar(
             pinned: true,
+            floating: true,
+            centerTitle: true,
             title: FlatButton.icon(
               onPressed: () {
                 _scrollController.jumpTo(0);
@@ -113,9 +133,12 @@ class _InListView extends State<InListView>
               textColor: Colors.white,
               label: Text('播放'),
             ),
-            child: DanPlayer(
-              controller: _controller,
-              fullScreen: false,
+            expandedHeight: 200,
+            flexibleSpace: FlexibleSpaceBar(
+              collapseMode: CollapseMode.pin,
+              background: DanPlayer(
+                controller: _controller,
+              ),
             ),
           ),
           SliverPersistentHeader(
